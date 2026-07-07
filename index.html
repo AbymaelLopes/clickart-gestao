@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ClickArt Gestão</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121212">
+    <link rel="apple-touch-icon" href="icon-192x192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --bg-card: #1E1E1E;
+            --primary-blue: #1C51B9;
+            --primary-yellow: #D4AF37;
+            --text-light: #F5F5F5;
+            --text-muted: #A0A0A0;
+            --danger: #D32F2F;
+        }
+
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background-color: var(--bg-dark);
+            border-bottom: 1px solid #333;
+        }
+
+        header h1 { font-size: 1.3rem; font-weight: bold; }
+        .header-icons i { margin-left: 15px; font-size: 1.2rem; color: var(--text-light); }
+
+        main { 
+            flex: 1; 
+            padding: 20px 20px 80px 20px; 
+            overflow-y: auto; 
+        }
+
+        /* Sistema de Abas (SPA) */
+        .view { display: none; animation: fadeIn 0.3s; }
+        .view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Typography */
+        h2 { font-size: 1.2rem; margin-bottom: 20px; color: var(--text-light); }
+
+        /* Cards do Dashboard */
+        .cards-grid { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 10px; 
+            margin-bottom: 30px; 
+        }
+        .card {
+            padding: 15px 10px;
+            border-radius: 12px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 80px;
+        }
+        .card h3 { font-size: 0.75rem; font-weight: normal; margin-bottom: 8px; opacity: 0.9; }
+        .card p { font-size: 1.1rem; font-weight: bold; }
+        .card-blue { background-color: var(--primary-blue); color: white; }
+        .card-yellow { background-color: var(--primary-yellow); color: #000; }
+
+        /* Alertas de Estoque */
+        .alert-section { margin-top: 20px; }
+        .stock-item {
+            background-color: var(--primary-yellow);
+            color: #000;
+            padding: 15px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .stock-item .info h4 { font-size: 1rem; margin-bottom: 4px; font-weight: bold; }
+        .stock-item .info p { font-size: 0.85rem; }
+        .stock-item i { color: var(--danger); font-size: 1.5rem; }
+
+        /* Textos Utilitários */
+        .text-center { text-align: center; }
+        .text-muted { color: var(--text-muted); }
+        .mt-4 { margin-top: 2rem; }
+
+        /* Menu Inferior Fixo */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0; 
+            width: 100%;
+            background-color: var(--bg-card);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            border-top: 1px solid #333;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom)); /* Para iPhones sem botão home */
+        }
+        .nav-btn {
+            background: none; 
+            border: none; 
+            color: var(--text-muted);
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            font-size: 0.75rem; 
+            cursor: pointer; 
+            transition: color 0.3s;
+            width: 20%;
+        }
+        .nav-btn i { font-size: 1.3rem; margin-bottom: 5px; }
+        .nav-btn.active { color: var(--primary-blue); }
+
+        /* ESTILOS DA TELA DE VENDAS          */
+        .search-container input {
+            width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid #333;
+            background: var(--bg-card); color: white; margin-bottom: 15px; outline: none;
+            font-size: 1rem;
+        }
+        .produto-item, .cart-item {
+            background: var(--bg-card); padding: 12px; border-radius: 8px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+        }
+        .produto-item h4, .cart-item h4 { font-size: 0.95rem; margin-bottom: 3px; font-weight: bold; }
+        .produto-item p, .cart-item p { font-size: 0.8rem; color: var(--text-muted); }
+        
+        .btn-add {
+            background: var(--primary-blue); color: white; border: none; width: 35px; height: 35px;
+            border-radius: 6px; cursor: pointer; font-size: 1rem;
+        }
+        
+        .cart-controls { display: flex; align-items: center; gap: 12px; }
+        .btn-qtd { 
+            background: #333; color: white; border: none; width: 30px; height: 30px; 
+            border-radius: 4px; cursor: pointer; font-size: 1.2rem;
+        }
+        
+        .btn-finalizar {
+            width: 100%; padding: 15px; background: var(--primary-yellow); color: #000;
+            border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; 
+            margin-top: 15px; cursor: pointer; transition: 0.3s;
+        }
+        .btn-finalizar:active { opacity: 0.8; transform: scale(0.98); }
+
+        /* ================================== */
+        /* ESTILOS DA TELA DE ESTOQUE E MODAL */
+        /* ================================== */
+        .estoque-item {
+            background: var(--bg-card); padding: 15px; border-radius: 8px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+        }
+        .estoque-item .info h4 { font-size: 0.95rem; margin-bottom: 4px; font-weight: bold; }
+        .estoque-item .info p { font-size: 0.8rem; color: var(--text-muted); }
+        .estoque-item .valores { text-align: right; }
+        .estoque-item .valores .qtd { font-size: 0.9rem; margin-bottom: 4px; display: block; }
+        .estoque-item .valores .preco { color: var(--primary-yellow); font-size: 0.9rem; font-weight: bold; }
+
+        /* Botão Flutuante (FAB) */
+        .btn-adicionar-flutuante {
+            position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%);
+            background: var(--primary-yellow); color: #000; border: none;
+            padding: 12px 25px; border-radius: 30px; font-weight: bold; font-size: 0.95rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); cursor: pointer; z-index: 100;
+            display: flex; align-items: center; gap: 8px; width: 85%; justify-content: center;
+        }
+
+        /* Modal Background */
+        .modal {
+            display: none; position: fixed; z-index: 200; left: 0; top: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);
+            align-items: center; justify-content: center;
+        }
+        /* Modal Content */
+        .modal-content {
+            background-color: var(--bg-card); margin: auto; padding: 20px;
+            border-radius: 12px; width: 90%; max-width: 400px;
+            border: 1px solid #333;
+        }
+        .close { color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
+        
+        .form-group input, .form-group select {
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333;
+            background: var(--bg-dark); color: white; margin-bottom: 15px; outline: none;
+        }
+
+        /* ================================== */
+        /* ESTILOS DA TELA FINANCEIRO         */
+        /* ================================== */
+        .financeiro-resumo {
+            display: flex; gap: 10px; margin-bottom: 30px;
+        }
+        .resumo-item {
+            flex: 1; background: var(--bg-card); padding: 15px 10px;
+            border-radius: 12px; text-align: center; border: 1px solid #333;
+        }
+        .resumo-item span { font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;}
+        .resumo-item h3 { font-size: 1rem; font-weight: bold; }
+        
+        /* Cores dos valores */
+        .resumo-item.entradas h3 { color: var(--primary-blue); }
+        .resumo-item.saidas h3 { color: var(--danger); }
+        .resumo-item.saldo h3 { color: var(--primary-yellow); }
+
+        .transacao-item {
+            background: var(--bg-card); padding: 15px; border-radius: 8px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+            border-left: 4px solid transparent;
+        }
+        .transacao-item.entrada { border-left-color: var(--primary-blue); }
+        .transacao-item.saida { border-left-color: var(--danger); }
+
+        .transacao-item .info h4 { font-size: 0.95rem; margin-bottom: 4px; font-weight: bold; }
+        .transacao-item .info p { font-size: 0.75rem; color: var(--text-muted); }
+        
+        .transacao-item .valor { font-weight: bold; font-size: 1rem; }
+        .transacao-item .valor.positivo { color: var(--primary-blue); }
+        .transacao-item .valor.negativo { color: var(--danger); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1><span style="color: var(--primary-blue)">Click</span><span style="color: var(--primary-yellow)">Art</span> Gestão</h1>
+        <div class="header-icons">
+            <i class="fas fa-store"></i>
+            <i class="fas fa-bell"></i>
+        </div>
+    </header>
+
+    <main id="app-content">
+        
+        <section id="home" class="view active">
+            <h2>Visão Geral</h2>
+            <div class="cards-grid">
+                <div class="card card-blue">
+                    <h3>Vendas Totais</h3>
+                    <p id="metric-vendas">R$ 0,00</p>
+                </div>
+                <div class="card card-yellow">
+                    <h3>Valor Estoque</h3>
+                    <p id="metric-estoque">R$ 0,00</p>
+                </div>
+                <div class="card card-blue">
+                    <h3>Fluxo Caixa</h3>
+                    <p id="metric-caixa">R$ 0,00</p>
+                </div>
+            </div>
+
+            <div class="chart-container" style="background: var(--bg-card); padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+                <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Vendas Totais</h3>
+                <canvas id="vendasChart" height="150"></canvas>
+            </div>
+
+            <div class="alert-section">
+                <h2>Produtos em Baixo Estoque</h2>
+                <div id="low-stock-list" class="list-container">
+                    <p class="text-center text-muted mt-4">Carregando dados...</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="vendas" class="view">
+            <h2>Nova Venda</h2>
+            
+            <div class="search-container">
+                <input type="text" id="busca-produto" placeholder="Buscar por nome ou SKU..." onkeyup="debounceBuscar()">
+            </div>
+            
+            <div id="resultados-busca" class="produtos-list"></div>
+            
+            <div class="cart-container mt-4">
+                <h3 style="margin-bottom: 15px; color: var(--text-muted);">Itens na Venda</h3>
+                <div id="itens-carrinho" class="cart-list">
+                    <p class="text-muted text-center">Nenhum item adicionado.</p>
+                </div>
+                
+                <div class="cart-total mt-4" style="border-top: 1px solid #333; padding-top: 15px;">
+                    <h3 style="display: flex; justify-content: space-between;">
+                        Total: <span id="total-venda" style="color: var(--primary-yellow)">R$ 0,00</span>
+                    </h3>
+                    <button class="btn-finalizar" onclick="finalizarVenda()">Finalizar Venda</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="estoque" class="view">
+            <h2>Estoque</h2>
+            
+            <div class="search-container">
+                <input type="text" id="busca-estoque" placeholder="Buscar em produtos..." onkeyup="debounceBuscarEstoque()">
+            </div>
+            
+            <div id="lista-estoque" class="produtos-list" style="margin-bottom: 70px;">
+                <p class="text-center text-muted">Carregando estoque...</p>
+            </div>
+
+            <button class="btn-adicionar-flutuante" onclick="abrirModalProduto()">
+                <i class="fas fa-plus"></i> Adicionar Novo Produto
+            </button>
+
+            <div id="modal-produto" class="modal">
+                <div class="modal-content">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3>Novo Produto</h3>
+                        <span class="close" onclick="fecharModalProduto()"><i class="fas fa-times"></i></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <input type="text" id="prod-nome" placeholder="Nome do Produto (Ex: Mochila Executiva)">
+                        <input type="text" id="prod-sku" placeholder="SKU (Ex: PROM00002A)">
+                        <select id="prod-categoria">
+                            <option value="Produtos">Produtos</option>
+                            <option value="Personalizados">Personalizados</option>
+                            <option value="Promocionais">Promocionais</option>
+                        </select>
+                        <input type="number" id="prod-preco" placeholder="Preço de Venda (R$)" step="0.01">
+                        <input type="number" id="prod-qtd" placeholder="Quantidade Inicial">
+                    </div>
+                    
+                    <button class="btn-finalizar" onclick="salvarProduto()">Salvar Produto</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="financeiro" class="view">
+            <h2>Financeiro</h2>
+
+            <div class="financeiro-resumo">
+                <div class="resumo-item entradas">
+                    <span>Entradas</span>
+                    <h3 id="fin-entradas">R$ 0,00</h3>
+                </div>
+                <div class="resumo-item saidas">
+                    <span>Saídas</span>
+                    <h3 id="fin-saidas">R$ 0,00</h3>
+                </div>
+                <div class="resumo-item saldo">
+                    <span>Saldo Líquido</span>
+                    <h3 id="fin-saldo">R$ 0,00</h3>
+                </div>
+            </div>
+
+            <h3 style="margin-bottom: 15px; font-size: 1.1rem; color: var(--text-light);">Histórico de Transações</h3>
+            <div id="lista-transacoes" class="transacoes-list" style="margin-bottom: 70px;">
+                <p class="text-center text-muted mt-4">Carregando histórico...</p>
+            </div>
+        </section>
+
+        <section id="perfil" class="view">
+            <h2>Meu Perfil</h2>
+            <p class="text-muted">Em breve: Configurações da conta e da loja.</p>
+        </section>
+
+    </main>
+
+    <nav class="bottom-nav">
+        <button class="nav-btn active" data-target="home">
+            <i class="fas fa-home"></i><span>Home</span>
+        </button>
+        <button class="nav-btn" data-target="vendas">
+            <i class="fas fa-shopping-cart"></i><span>Vendas</span>
+        </button>
+        <button class="nav-btn" data-target="estoque">
+            <i class="fas fa-box"></i><span>Estoque</span>
+        </button>
+        <button class="nav-btn" data-target="financeiro">
+            <i class="fas fa-dollar-sign"></i><span>Financeiro</span>
+        </button>
+        <button class="nav-btn" data-target="perfil">
+            <i class="fas fa-user"></i><span>Perfil</span>
+        </button>
+    </nav>
+
+    <script>
+        let chartInstance = null; // Variável para controlar o gráfico
+
+        function renderizarGraficoVendas(labels, dados) {
+            const ctx = document.getElementById('vendasChart').getContext('2d');
+            
+            // Se já existir um gráfico, destruímos ele antes de criar o novo (evita sobreposição)
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels, // Ex: ['Jan', 'Fev', 'Mar', ...]
+                    datasets: [{
+                        label: 'Vendas (R$)',
+                        data: dados,
+                        borderColor: '#1C51B9',
+                        backgroundColor: 'rgba(28, 81, 185, 0.2)',
+                        fill: true,
+                        tension: 0.4 // Suaviza a curva do gráfico
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#333' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+        // ==========================================
+        // 1. CONFIGURAÇÕES DA API
+        // ==========================================
+        // Atenção: Certifique-se de que o FastAPI está rodando neste endereço
+        const API_URL = 'http://127.0.0.1:8000';
+
+        // ==========================================
+        // 2. NAVEGAÇÃO SPA (Single Page Application)
+        // ==========================================
+        const navButtons = document.querySelectorAll('.nav-btn');
+        const views = document.querySelectorAll('.view');
+
+        navButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove a classe 'active' de todos os botões e telas
+                navButtons.forEach(b => b.classList.remove('active'));
+                views.forEach(v => v.classList.remove('active'));
+
+                // Adiciona a classe 'active' ao botão clicado e à tela correspondente
+                btn.classList.add('active');
+                const targetViewId = btn.getAttribute('data-target');
+                document.getElementById(targetViewId).classList.add('active');
+
+                // Executa ações específicas dependendo da tela aberta
+                if (targetViewId === 'home') {
+                    carregarDashboard();
+                } else if (targetViewId === 'estoque') { 
+                    carregarEstoque();
+                } else if (targetViewId === 'financeiro') { 
+                    carregarFinanceiro();
+                }
+            });
+        });
+
+        // ==========================================
+        // 3. INTEGRAÇÃO COM FASTAPI (Fetch)
+        // ==========================================
+        const formatarMoeda = (valor) => {
+            return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        };
+
+        async function carregarDashboard() {
+            const listaEstoque = document.getElementById('low-stock-list');
+            
+            try {
+                const response = await fetch(`${API_URL}/dashboard`);
+                if (!response.ok) throw new Error('Falha ao conectar com a API');
+                
+                const data = await response.json();
+                
+                // 1. Atualiza os Cards
+                document.getElementById('metric-vendas').innerText = formatarMoeda(data.metricas.vendas_totais);
+                document.getElementById('metric-estoque').innerText = formatarMoeda(data.metricas.valor_estoque);
+                document.getElementById('metric-caixa').innerText = formatarMoeda(data.metricas.fluxo_caixa);
+
+                // 2. Atualiza Gráfico (A parte nova)
+                renderizarGraficoVendas(data.grafico.labels, data.grafico.dados);
+
+                // 3. Atualiza Lista de Alerta de Estoque
+                listaEstoque.innerHTML = '';
+                if (data.produtos_baixo_estoque.length === 0) {
+                    listaEstoque.innerHTML = '<p class="text-center text-muted mt-4">Estoque regularizado.</p>';
+                } else {
+                    data.produtos_baixo_estoque.forEach(produto => {
+                        listaEstoque.innerHTML += `
+                            <div class="stock-item">
+                                <div class="info">
+                                    <h4>${produto.nome}</h4>
+                                    <p>SKU: ${produto.sku} | Qtd Atual: <strong>${produto.quantidade_atual}</strong></p>
+                                </div>
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (error) {
+                console.error(error);
+                listaEstoque.innerHTML = '<p class="text-center text-muted mt-4">Erro ao carregar dados. Verifique a API.</p>';
+            }
+        }
+
+        // ==========================================
+        // 4. INICIALIZAÇÃO
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            carregarDashboard();
+        });
+
+        // ==========================================
+        // LÓGICA DO PONTO DE VENDA (CARRINHO)
+        // ==========================================
+        let carrinho = [];
+        let timerBusca;
+
+        // Função para não sobrecarregar a API a cada letra digitada
+        function debounceBuscar() {
+            clearTimeout(timerBusca);
+            timerBusca = setTimeout(buscarProdutos, 500); 
+        }
+
+        async function buscarProdutos() {
+            const termo = document.getElementById('busca-produto').value;
+            const divResultados = document.getElementById('resultados-busca');
+            
+            if (termo.length < 2) {
+                divResultados.innerHTML = '';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/produtos?busca=${termo}`);
+                const produtos = await res.json();
+                
+                divResultados.innerHTML = '';
+                if (produtos.length === 0) {
+                    divResultados.innerHTML = '<p class="text-muted text-center">Nenhum produto encontrado.</p>';
+                    return;
+                }
+
+                produtos.forEach(p => {
+                    divResultados.innerHTML += `
+                        <div class="produto-item">
+                            <div>
+                                <h4>${p.nome}</h4>
+                                <p>SKU: ${p.sku} | <strong>Estoque: ${p.quantidade_atual}</strong></p>
+                                <p style="color: var(--primary-yellow); margin-top: 5px;">${formatarMoeda(p.preco_venda)}</p>
+                            </div>
+                            <button class="btn-add" onclick="adicionarAoCarrinho('${p.id}', '${p.nome}', ${p.preco_venda}, ${p.quantidade_atual})">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    `;
+                });
+            } catch (error) {
+                console.error("Erro na busca", error);
+            }
+        }
+
+        function adicionarAoCarrinho(id, nome, preco, estoque) {
+            const itemExistente = carrinho.find(i => i.produto_id === id);
+            
+            if (itemExistente) {
+                if (itemExistente.quantidade < estoque) {
+                    itemExistente.quantidade++;
+                } else {
+                    alert(`Atenção: A quantidade excede o estoque disponível (${estoque})!`);
+                }
+            } else {
+                if (estoque > 0) {
+                    carrinho.push({ produto_id: id, nome: nome, preco: preco, quantidade: 1, estoque_max: estoque });
+                } else {
+                    alert('Este produto está sem estoque!');
+                }
+            }
+            atualizarCarrinho();
+        }
+
+        function alterarQtd(id, delta) {
+            const item = carrinho.find(i => i.produto_id === id);
+            if (item) {
+                const novaQtd = item.quantidade + delta;
+                if (novaQtd > 0 && novaQtd <= item.estoque_max) {
+                    item.quantidade = novaQtd;
+                } else if (novaQtd === 0) {
+                    // Remove do carrinho se a quantidade chegar a zero
+                    carrinho = carrinho.filter(i => i.produto_id !== id);
+                } else {
+                    alert(`Estoque máximo atingido (${item.estoque_max} disponíveis)!`);
+                }
+            }
+            atualizarCarrinho();
+        }
+
+        function atualizarCarrinho() {
+            const divCarrinho = document.getElementById('itens-carrinho');
+            const totalSpan = document.getElementById('total-venda');
+            divCarrinho.innerHTML = '';
+            
+            if (carrinho.length === 0) {
+                divCarrinho.innerHTML = '<p class="text-muted text-center">Nenhum item adicionado.</p>';
+                totalSpan.innerText = 'R$ 0,00';
+                return;
+            }
+
+            let total = 0;
+            carrinho.forEach(item => {
+                total += item.preco * item.quantidade;
+                divCarrinho.innerHTML += `
+                    <div class="cart-item">
+                        <div>
+                            <h4>${item.nome}</h4>
+                            <p>${formatarMoeda(item.preco)} (un)</p>
+                        </div>
+                        <div class="cart-controls">
+                            <button class="btn-qtd" onclick="alterarQtd('${item.produto_id}', -1)">-</button>
+                            <span style="font-weight: bold; width: 20px; text-align: center;">${item.quantidade}</span>
+                            <button class="btn-qtd" onclick="alterarQtd('${item.produto_id}', 1)">+</button>
+                        </div>
+                    </div>
+                `;
+            });
+            totalSpan.innerText = formatarMoeda(total);
+        }
+
+        async function finalizarVenda() {
+            if (carrinho.length === 0) {
+                alert('Adicione itens ao carrinho primeiro!');
+                return;
+            }
+
+            // Transforma os dados locais no formato que a API espera
+            const payload = {
+                itens: carrinho.map(i => ({
+                    produto_id: i.produto_id,
+                    quantidade: i.quantidade,
+                    preco_unitario: i.preco
+                }))
+            };
+
+            // Altera o texto do botão para mostrar que está processando
+            const btn = document.querySelector('.btn-finalizar');
+            btn.innerText = 'Processando...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_URL}/vendas`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert('Venda registrada com sucesso!');
+                    carrinho = []; 
+                    atualizarCarrinho();
+                    document.getElementById('busca-produto').value = '';
+                    document.getElementById('resultados-busca').innerHTML = '';
+                    carregarDashboard(); // Atualiza os números da Home em background
+                } else {
+                    alert(data.detail || 'Erro ao registrar venda');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro de conexão ao finalizar venda.');
+            } finally {
+                btn.innerText = 'Finalizar Venda';
+                btn.disabled = false;
+            }
+        }
+
+        // ==========================================
+        // LÓGICA DO ESTOQUE (INVENTÁRIO E CRUD)
+        // ==========================================
+        let timerBuscaEstoque;
+
+        function debounceBuscarEstoque() {
+            clearTimeout(timerBuscaEstoque);
+            timerBuscaEstoque = setTimeout(carregarEstoque, 500); 
+        }
+
+        async function carregarEstoque() {
+            const termo = document.getElementById('busca-estoque') ? document.getElementById('busca-estoque').value : '';
+            const divEstoque = document.getElementById('lista-estoque');
+            
+            try {
+                // Reaproveitamos a rota de produtos com busca
+                const res = await fetch(`${API_URL}/produtos?busca=${termo}`);
+                const produtos = await res.json();
+                
+                divEstoque.innerHTML = '';
+                
+                if (produtos.length === 0) {
+                    divEstoque.innerHTML = '<p class="text-muted text-center mt-4">Nenhum produto encontrado.</p>';
+                    return;
+                }
+
+                produtos.forEach(p => {
+                    divEstoque.innerHTML += `
+                        <div class="estoque-item">
+                            <div class="info">
+                                <h4>${p.nome}</h4>
+                                <p>SKU: ${p.sku}</p>
+                            </div>
+                            <div class="valores">
+                                <span class="qtd">Qtd: <strong>${p.quantidade_atual}</strong></span>
+                                <span class="preco">${formatarMoeda(p.preco_venda)}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (error) {
+                console.error("Erro ao carregar estoque", error);
+                divEstoque.innerHTML = '<p class="text-muted text-center mt-4">Erro ao carregar itens.</p>';
+            }
+        }
+
+        // Controle do Modal
+        function abrirModalProduto() { document.getElementById('modal-produto').style.display = 'flex'; }
+        function fecharModalProduto() { document.getElementById('modal-produto').style.display = 'none'; }
+
+        // Salvar Novo Produto no Banco
+        async function salvarProduto() {
+            const btn = document.querySelector('#modal-produto .btn-finalizar');
+            const produto = {
+                nome: document.getElementById('prod-nome').value,
+                sku: document.getElementById('prod-sku').value,
+                categoria: document.getElementById('prod-categoria').value,
+                preco_venda: parseFloat(document.getElementById('prod-preco').value),
+                quantidade_atual: parseInt(document.getElementById('prod-qtd').value),
+                estoque_minimo: 5 // Valor padrão para alertas
+            };
+
+            if (!produto.nome || !produto.sku || isNaN(produto.preco_venda) || isNaN(produto.quantidade_atual)) {
+                alert("Preencha todos os campos corretamente.");
+                return;
+            }
+
+            btn.innerText = 'Salvando...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_URL}/produtos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(produto)
+                });
+
+                if (res.ok) {
+                    alert('Produto adicionado com sucesso!');
+                    fecharModalProduto();
+                    // Limpar formulário
+                    document.getElementById('prod-nome').value = '';
+                    document.getElementById('prod-sku').value = '';
+                    document.getElementById('prod-preco').value = '';
+                    document.getElementById('prod-qtd').value = '';
+                    
+                    carregarEstoque(); // Recarrega a lista
+                } else {
+                    const data = await res.json();
+                    alert(data.detail || 'Erro ao cadastrar produto. O SKU já existe?');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Erro de conexão.');
+            } finally {
+                btn.innerText = 'Salvar Produto';
+                btn.disabled = false;
+            }
+        }
+
+        // ==========================================
+        // LÓGICA DO FINANCEIRO (HISTÓRICO)
+        // ==========================================
+        async function carregarFinanceiro() {
+            const divTransacoes = document.getElementById('lista-transacoes');
+            
+            try {
+                const res = await fetch(`${API_URL}/financeiro`);
+                const data = await res.json();
+                
+                // 1. Atualiza os cards de Resumo
+                document.getElementById('fin-entradas').innerText = formatarMoeda(data.resumo_periodo.total_entradas);
+                document.getElementById('fin-saidas').innerText = formatarMoeda(data.resumo_periodo.total_saidas);
+                document.getElementById('fin-saldo').innerText = formatarMoeda(data.resumo_periodo.saldo_periodo);
+                
+                // 2. Renderiza a Lista de Transações
+                divTransacoes.innerHTML = '';
+                
+                if (data.transacoes.length === 0) {
+                    divTransacoes.innerHTML = '<p class="text-muted text-center mt-4">Nenhuma movimentação registrada.</p>';
+                    return;
+                }
+
+                data.transacoes.forEach(t => {
+                    const isEntrada = t.tipo === 'entrada';
+                    const classeCor = isEntrada ? 'positivo' : 'negativo';
+                    const classeBorda = isEntrada ? 'entrada' : 'saida';
+                    const sinal = isEntrada ? '+' : '-';
+                    
+                    // Formata a data (Ex: 05/10/2026 às 14:30)
+                    const dataFormatada = new Date(t.data_transacao).toLocaleDateString('pt-BR', {
+                        day: '2-digit', month: '2-digit', year: 'numeric', 
+                        hour: '2-digit', minute:'2-digit'
+                    });
+
+                    divTransacoes.innerHTML += `
+                        <div class="transacao-item ${classeBorda}">
+                            <div class="info">
+                                <h4>${t.categoria}</h4>
+                                <p>${dataFormatada}</p>
+                                <p style="margin-top: 3px; font-style: italic;">${t.descricao || ''}</p>
+                            </div>
+                            <div class="valor ${classeCor}">
+                                ${sinal} ${formatarMoeda(t.valor)}
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (error) {
+                console.error("Erro ao carregar financeiro", error);
+                divTransacoes.innerHTML = '<p class="text-muted text-center mt-4">Erro ao carregar histórico financeiro.</p>';
+            }
+        }
+
+        // ==========================================
+        // 5. REGISTRO DO SERVICE WORKER (Para PWA)
+        // ==========================================
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registrado com sucesso!', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('Falha ao registrar o Service Worker:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
