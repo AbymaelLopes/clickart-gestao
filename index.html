@@ -305,7 +305,7 @@
             <h2>Nova Venda</h2>
             
             <div class="search-container">
-                <input type="text" id="busca-produto" placeholder="Buscar por nome ou SKU..." onkeyup="debounceBuscar()">
+                <input type="text" id="busca-produto" placeholder="Buscar por nome..." onkeyup="debounceBuscar()">
             </div>
             
             <div id="resultados-busca" class="produtos-list"></div>
@@ -349,14 +349,16 @@
                     
                     <div class="form-group">
                         <input type="text" id="prod-nome" placeholder="Nome do Produto (Ex: Mochila Executiva)">
-                        <input type="text" id="prod-sku" placeholder="SKU (Ex: PROM00002A)">
+                         
                         <select id="prod-categoria">
                             <option value="Produtos">Produtos</option>
                             <option value="Personalizados">Personalizados</option>
                             <option value="Promocionais">Promocionais</option>
                         </select>
+                        
+                        <input type="number" id="prod-preco-compra" placeholder="Preço de Compra (R$)" step="0.01">
                         <input type="number" id="prod-preco" placeholder="Preço de Venda (R$)" step="0.01">
-                        <input type="number" id="prod-qtd" placeholder="Quantidade Inicial">
+                        <input type="number" id="prod-qtd" placeholder="Quantidade">
                     </div>
                     
                     <button class="btn-finalizar" onclick="salvarProduto()">Salvar Produto</button>
@@ -366,6 +368,11 @@
 
         <section id="financeiro" class="view">
             <h2>Financeiro</h2>
+ 
+            <div class="chart-container" style="height: 200px; background: var(--bg-card); padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+                <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Lucro Líquido Mensal</h3>
+                <canvas id="lucroChart"></canvas>
+            </div>
 
             <div class="financeiro-resumo">
                 <div class="resumo-item entradas">
@@ -445,6 +452,16 @@
         }
         const db = supabase.createClient('https://zebbloncwutsxibxjmvo.supabase.co', 'sb_publishable_FOoqjfpszOfY5yMneRutNw_fUaYpFRF');
 
+        // Funções para controlar o Modal de Produtos
+        function abrirModalProduto() {
+            // produtoEditandoId = null; // Garante que é um novo cadastro
+            document.getElementById('modal-produto').style.display = 'flex';
+        }
+
+        function fecharModalProduto() {
+            document.getElementById('modal-produto').style.display = 'none';
+        }
+
         // 2. UTILITÁRIOS
         const formatarMoeda = (valor) => {
             return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -471,30 +488,38 @@
         // 4. LÓGICA DO DASHBOARD (Com tratamento de erro)
         async function carregarDashboard() {
             try {
-                // Busca vendas COM data e produtos
-                const { data: vendas } = await db.from('vendas').select('valor_total, data_venda');
-                const { data: produtos } = await db.from('produtos').select('quantidade_atual, preco_venda, nome, estoque_minimo, sku');
-                
+                // Busca os dados do Supabase
+                const { data: vendas, error: errVendas } = await db.from('vendas').select('valor_total, data_venda');
+                const { data: produtos, error: errProdutos } = await db.from('produtos').select('quantidade_atual, preco_venda, nome, estoque_minimo');
+
+                if (errVendas) console.error("Erro ao buscar vendas:", errVendas);
+                if (errProdutos) console.error("Erro ao buscar produtos:", errProdutos);
+
+                // Garante que ambos sejam arrays vazios se forem null
+                const vendasArray = vendas || [];
+                const produtosArray = produtos || [];
 
                 // 1. Lógica do Gráfico
                 const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
                 const dadosGrafico = new Array(12).fill(0);
                 
-                (vendas || []).forEach(v => {
+                vendasArray.forEach(v => {
                     const mes = new Date(v.data_venda).getMonth();
                     dadosGrafico[mes] += (v.valor_total || 0);
                 });
                 renderizarGraficoVendas(meses, dadosGrafico);
 
                 // 2. Atualiza cards
-                const totalVendas = (vendas || []).reduce((acc, v) => acc + (v.valor_total || 0), 0);
-                const totalEstoque = (produtos || []).reduce((acc, p) => acc + (p.quantidade_atual * p.preco_venda), 0);
+                const totalVendas = vendasArray.reduce((acc, v) => acc + (v.valor_total || 0), 0);
+                const totalEstoque = produtosArray.reduce((acc, p) => acc + (p.quantidade_atual * p.preco_venda), 0);
+                
                 document.getElementById('metric-vendas').innerText = formatarMoeda(totalVendas);
                 document.getElementById('metric-estoque').innerText = formatarMoeda(totalEstoque);
 
-                // 3. Baixo estoque
+                // 3. Baixo estoque (agora usando a variável protegida)
                 const listaEstoque = document.getElementById('low-stock-list');
-                const produtosBaixo = produtos.filter(p => p.quantidade_atual <= p.estoque_minimo);
+                const produtosBaixo = produtosArray.filter(p => p.quantidade_atual <= p.estoque_minimo);
+                
                 listaEstoque.innerHTML = produtosBaixo.length > 0 ? 
                     produtosBaixo.map(p => `<div class="stock-item"><h4>${p.nome}</h4><p>Qtd: ${p.quantidade_atual}</p></div>`).join('') :
                     '<p class="text-center text-muted mt-4">Estoque regularizado.</p>';
@@ -503,6 +528,88 @@
                 console.error("Erro no Dashboard:", error);
             }
         }
+
+        async function salvarProduto() {
+
+            console.log("ID do produto a editar:", produtoEditandoId);
+
+            const nome = document.getElementById('prod-nome').value;
+            const precoCompra = parseFloat(document.getElementById('prod-preco-compra').value);
+            const categoria = document.getElementById('prod-categoria').value;
+            const precoVenda = parseFloat(document.getElementById('prod-preco').value);
+            const qtd = parseInt(document.getElementById('prod-qtd').value);
+
+            if (!nome || isNaN(precoCompra)) {
+                alert("Preencha o Nome e o Preço de Compra!");
+                return;
+            }
+
+            const dadosProduto = { 
+                nome: nome, 
+                categoria: categoria, 
+                preco_compra: precoCompra, 
+                preco_venda: precoVenda, 
+                quantidade_atual: qtd 
+            };
+
+            try {
+                if (produtoEditandoId) {
+                    // ATUALIZAÇÃO: O .eq('id', produtoEditandoId) é o que evita criar um novo registro
+                    const { error } = await db.from('produtos')
+                        .update(dadosProduto)
+                        .eq('id', produtoEditandoId); // <--- ESTA É A LINHA QUE DEFINE QUE É O MESMO PRODUTO
+
+                    if (error) throw error;
+                    alert("Produto atualizado com sucesso!");
+                } else {
+                    // INSERÇÃO: Caso não haja ID, cria novo
+                    const { error } = await db.from('produtos').insert([dadosProduto]);
+                    if (error) throw error;
+                    alert("Produto salvo com sucesso!");
+                }
+
+                // Limpeza e reset
+                produtoEditandoId = null; 
+                fecharModalProduto();
+                carregarEstoque();
+            } catch (err) {
+                console.error("Erro:", err);
+                alert("Erro: " + err.message);
+            }
+        }
+
+        async function calcularLucroMensal() {
+            try {
+                const { data: itens, error } = await db
+                    .from('itens_venda')
+                    .select(`
+                        quantidade,
+                        vendas(data_venda),
+                        produtos(preco_compra, preco_venda)
+                    `);
+
+                if (error) throw error;
+
+                const lucrosPorMes = new Array(12).fill(0);
+
+                (itens || []).forEach(item => {
+                    if (item.vendas && item.produtos) {
+                        const dataVenda = new Date(item.vendas.data_venda);
+                        const mes = dataVenda.getMonth();
+                        
+                        // Lucro = (Preço Venda - Preço Custo) * Quantidade
+                        const lucroItem = (item.produtos.preco_venda - item.produtos.preco_compra) * item.quantidade;
+                        lucrosPorMes[mes] += lucroItem;
+                    }
+                });
+
+                return lucrosPorMes;
+            } catch (err) {
+                console.error("Erro ao calcular lucro:", err);
+                return new Array(12).fill(0);
+            }
+        }
+
         // 5. LÓGICA DE ESTOQUE (Com tratamento de erro)
         async function carregarEstoque() {
             try {
@@ -511,45 +618,122 @@
                 
                 const div = document.getElementById('lista-estoque');
                 if (div) {
-                    div.innerHTML = data.map(p => `
+                    // Substitua o map dentro de carregarEstoque por isto:
+                    div.innerHTML = (data || []).map(p => `
                         <div class="estoque-item">
-                            <div><h4>${p.nome}</h4><p>SKU: ${p.sku}</p></div>
-                            <div class="valores"><span class="qtd">Qtd: ${p.quantidade_atual}</span></div>
+                            <div>
+                                <h4>${p.nome}</h4>
+                                <p>Preço Venda: ${formatarMoeda(p.preco_venda)}</p>
+                            </div>
+                            <div class="valores">
+                                <span class="qtd">Qtd: ${p.quantidade_atual}</span>
+                                <div style="display: flex; gap: 10px; margin-top: 5px;">
+                                    <button onclick="editarProduto('${p.id}', '${p.nome}', ${p.preco_compra}, ${p.preco_venda}, ${p.quantidade_atual}, '${p.categoria}')" 
+                                            style="background:none; border:none; color:var(--primary-yellow); cursor:pointer;">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="deletarProduto('${p.id}', '${p.nome}')" 
+                                            style="background:none; border:none; color:var(--danger); cursor:pointer;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     `).join('');
                 }
             } catch (err) {
-                console.error("Estoque:", err);
+                console.error("Erro ao carregar estoque:", err);
             }
         }
 
-        // CARREGAR FINANCEIRO //
-        async function carregarFinanceiro() {
+        let produtoEditandoId = null; // Variável global para rastrear o ID
+
+       function editarProduto(id, nome, precoCompra, precoVenda, qtd, categoria) {
+            produtoEditandoId = id; 
+            console.log("ID do produto capturado para edição:", produtoEditandoId); // ADICIONE ISSO
+            
+            document.getElementById('prod-nome').value = nome;
+            document.getElementById('prod-preco-compra').value = precoCompra;
+            document.getElementById('prod-preco').value = precoVenda;
+            document.getElementById('prod-qtd').value = qtd;
+            document.getElementById('prod-categoria').value = categoria;
+            
+            abrirModalProduto();
+        }
+
+        async function deletarProduto(id, nome) {
+            if (!confirm(`Tem certeza que deseja excluir o produto "${nome}"?`)) {
+                return; // Cancela se o usuário clicar em "Cancelar"
+            }
+
             try {
-                // Buscamos diretamente da tabela de vendas
-                const { data: vendas, error } = await db.from('vendas').select('valor_total, data_venda');
+                const { error } = await db.from('produtos').delete().eq('id', id);
                 
                 if (error) throw error;
 
-                // Calculamos apenas o total como entrada
-                const totalEntradas = (vendas || []).reduce((acc, v) => acc + (v.valor_total || 0), 0);
+                alert("Produto deletado com sucesso!");
+                carregarEstoque(); // Atualiza a lista na tela
+            } catch (err) {
+                console.error("Erro ao deletar:", err);
+                alert("Erro ao excluir: " + err.message);
+            }
+        }
+
+        let graficoLucro = null;
+
+        function renderizarGraficoLucro(dados) {
+            const ctx = document.getElementById('lucroChart').getContext('2d');
+            if (graficoLucro) graficoLucro.destroy();
+
+            graficoLucro = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
+                    datasets: [{
+                        label: 'Lucro Líquido (R$)',
+                        data: dados,
+                        backgroundColor: '#D4AF37'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // --- FUNÇÃO ÚNICA E CORRETA ---
+        async function carregarFinanceiro() {
+            try {
+                // 1. Busca vendas
+                const { data: vendas, error: errVendas } = await db
+                    .from('vendas')
+                    .select('id, valor_total, data_venda');
                 
+                if (errVendas) throw errVendas;
+
+                // 2. Renderiza o histórico de transações
+                const listaTransacoes = document.getElementById('lista-transacoes');
+                if (listaTransacoes) {
+                    listaTransacoes.innerHTML = (vendas || []).map(v => `
+                        <div class="transacao-item entrada">
+                            <div class="info">
+                                <h4>Venda Realizada</h4>
+                                <p>${new Date(v.data_venda).toLocaleDateString()}</p>
+                            </div>
+                            <div class="valor positivo">
+                                + ${formatarMoeda(v.valor_total)}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                // 3. Atualiza os cards
+                const totalEntradas = (vendas || []).reduce((acc, v) => acc + (v.valor_total || 0), 0);
                 document.getElementById('fin-entradas').innerText = formatarMoeda(totalEntradas);
-                document.getElementById('fin-saidas').innerText = formatarMoeda(0); // Ajuste conforme necessário
+                document.getElementById('fin-saidas').innerText = formatarMoeda(0);
                 document.getElementById('fin-saldo').innerText = formatarMoeda(totalEntradas);
 
-                // Renderiza a lista de vendas como transações
-                document.getElementById('lista-transacoes').innerHTML = vendas.map(v => `
-                    <div class="transacao-item entrada">
-                        <div class="info">
-                            <h4>Venda Realizada</h4>
-                            <p>${new Date(v.data_venda).toLocaleDateString()}</p>
-                        </div>
-                        <div class="valor positivo">
-                            + ${formatarMoeda(v.valor_total)}
-                        </div>
-                    </div>
-                `).join('');
+                // 4. Renderiza o gráfico
+                const dadosLucro = await calcularLucroMensal();
+                renderizarGraficoLucro(dadosLucro);
 
             } catch (err) {
                 console.error("Erro no Financeiro:", err);
@@ -557,7 +741,6 @@
         }
 
         // 6. LÓGICA DE VENDAS (Exemplo de estrutura)
-        // Certifique-se de chamar esta função passando os dados reais do seu carrinho
         async function finalizarVenda(carrinho, total) {
             try {
                 const { data: venda, error: errV } = await db.from('vendas').insert([{ valor_total: total }]).select();
@@ -606,7 +789,7 @@
                         <h4>${p.nome}</h4>
                         <p>Estoque: ${p.quantidade_atual} | R$ ${p.preco_venda}</p>
                     </div>
-                    <button class="btn-add" onclick="adicionarAoCarrinho(${p.id}, '${p.nome}', ${p.preco_venda})">+</button>
+                    <button class="btn-add" onclick="adicionarAoCarrinho('${p.id}', '${p.nome.replace(/'/g, "\\'")}', ${p.preco_venda}, ${p.quantidade_atual})">+</button>
                 </div>
             `).join('');
         }
@@ -614,6 +797,82 @@
         document.addEventListener('DOMContentLoaded', () => {
             carregarDashboard();
         });
+
+        // Array para armazenar os produtos do carrinho
+        let carrinho = [];
+
+        function adicionarAoCarrinho(id, nome, preco, estoqueMax) {
+            // Procura se o produto já está no carrinho
+            const itemNoCarrinho = carrinho.find(item => item.produto_id === id);
+            const qtdNoCarrinho = itemNoCarrinho ? itemNoCarrinho.quantidade : 0;
+
+            // Validação: Verifica se a próxima unidade excede o estoque
+            if (qtdNoCarrinho + 1 > estoqueMax) {
+                alert("Quantidade insuficiente em estoque!");
+                return;
+            }
+
+            if (itemNoCarrinho) {
+                itemNoCarrinho.quantidade += 1;
+            } else {
+                carrinho.push({
+                    produto_id: id,
+                    nome: nome,
+                    preco: preco,
+                    quantidade: 1,
+                    estoque_max: estoqueMax // Guardamos o limite para consultas futuras
+                });
+            }
+
+            atualizarInterfaceCarrinho();
+        }
+
+        function atualizarInterfaceCarrinho() {
+            const divCarrinho = document.getElementById('itens-carrinho');
+            const totalElement = document.getElementById('total-venda');
+            
+            if (carrinho.length === 0) {
+                divCarrinho.innerHTML = '<p class="text-muted text-center">Nenhum item adicionado.</p>';
+                totalElement.innerText = formatarMoeda(0);
+                return;
+            }
+
+            // Renderiza os itens
+            divCarrinho.innerHTML = carrinho.map((item, index) => `
+                <div class="cart-item">
+                    <div>
+                        <h4>${item.nome}</h4>
+                        <p>R$ ${item.preco.toFixed(2)}</p>
+                    </div>
+                    <div class="cart-controls">
+                        <button class="btn-qtd" onclick="removerDoCarrinho(${index})">-</button>
+                        <span>${item.quantidade}</span>
+                        <button class="btn-qtd" onclick="adicionarMaisUm(${index})">+</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Calcula o total
+            const total = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
+            totalElement.innerText = formatarMoeda(total);
+        }
+
+        function removerDoCarrinho(index) {
+            carrinho.splice(index, 1);
+            atualizarInterfaceCarrinho();
+        }
+
+        function adicionarMaisUm(index) {
+            const item = carrinho[index];
+            
+            if (item.quantidade + 1 > item.estoque_max) {
+                alert("Limite de estoque atingido!");
+                return;
+            }
+            
+            item.quantidade += 1;
+            atualizarInterfaceCarrinho();
+        }
 
         // 8. REGISTRO PWA
         if ('serviceWorker' in navigator && location.protocol !== 'file:') {
