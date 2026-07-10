@@ -1,20 +1,21 @@
 {
   "name": "ClickArt Gestão",
   "short_name": "ClickArt",
+  "version": "1.0.2", 
   "description": "Sistema de gestão e PDV da ClickArt Brindes",
-  "start_url": "./index.html",
+  "start_url": "./index.html?v=1.0.2",
   "display": "standalone",
   "background_color": "#121212",
   "theme_color": "#121212",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "icon-192x192.png",
+      "src": "icon-192x192.png?v=1.0.2",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "icon-512x512.png",
+      "src": "icon-512x512.png?v=1.0.2",
       "sizes": "512x512",
       "type": "image/png"
     }

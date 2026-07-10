@@ -877,7 +877,19 @@
         // 8. REGISTRO PWA
         if ('serviceWorker' in navigator && location.protocol !== 'file:') {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => console.log('PWA:', err));
+                navigator.serviceWorker.register('./sw.js').then(reg => {
+                    reg.onupdatefound = () => {
+                        const installingWorker = reg.installing;
+                        installingWorker.onstatechange = () => {
+                            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // Nova versão detectada!
+                                // Forçamos o recarregamento para o usuário ver a mudança
+                                console.log('Nova versão disponível. Atualizando...');
+                                window.location.reload();
+                            }
+                        };
+                    };
+                }).catch(err => console.log('PWA Error:', err));
             });
         }
     </script>
