@@ -25,6 +25,7 @@
             --text-light: #F5F5F5;
             --text-muted: #A0A0A0;
             --danger: #D32F2F;
+            --success: #2E7D32;
         }
 
         * { 
@@ -123,7 +124,7 @@
             justify-content: space-around;
             padding: 12px 0;
             border-top: 1px solid #333;
-            padding-bottom: calc(12px + env(safe-area-inset-bottom)); /* Para iPhones sem botão home */
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
         }
         .nav-btn {
             background: none; 
@@ -135,23 +136,30 @@
             font-size: 0.75rem; 
             cursor: pointer; 
             transition: color 0.3s;
-            width: 20%;
+            flex: 1;
         }
         .nav-btn i { font-size: 1.3rem; margin-bottom: 5px; }
         .nav-btn.active { color: var(--primary-blue); }
 
-        /* ESTILOS DA TELA DE VENDAS          */
+        /* ESTILOS GERAIS DE INPUTS E SELECTS */
+        .form-group input, .form-group select {
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333;
+            background: var(--bg-dark); color: white; margin-bottom: 15px; outline: none;
+            font-size: 1rem;
+        }
+
+        /* ESTILOS DA TELA DE VENDAS */
         .search-container input {
             width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid #333;
             background: var(--bg-card); color: white; margin-bottom: 15px; outline: none;
             font-size: 1rem;
         }
-        .produto-item, .cart-item {
+        .produto-item, .cart-item, .cliente-item {
             background: var(--bg-card); padding: 12px; border-radius: 8px;
             display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
         }
-        .produto-item h4, .cart-item h4 { font-size: 0.95rem; margin-bottom: 3px; font-weight: bold; }
-        .produto-item p, .cart-item p { font-size: 0.8rem; color: var(--text-muted); }
+        .produto-item h4, .cart-item h4, .cliente-item h4 { font-size: 0.95rem; margin-bottom: 3px; font-weight: bold; }
+        .produto-item p, .cart-item p, .cliente-item p { font-size: 0.8rem; color: var(--text-muted); }
         
         .btn-add {
             background: var(--primary-blue); color: white; border: none; width: 35px; height: 35px;
@@ -171,9 +179,12 @@
         }
         .btn-finalizar:active { opacity: 0.8; transform: scale(0.98); }
 
-        /* ================================== */
+        .btn-baixa {
+            background: var(--success); color: white; border: none; padding: 8px 12px;
+            border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: bold;
+        }
+
         /* ESTILOS DA TELA DE ESTOQUE E MODAL */
-        /* ================================== */
         .estoque-item {
             background: var(--bg-card); padding: 15px; border-radius: 8px;
             display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
@@ -206,15 +217,8 @@
             border: 1px solid #333;
         }
         .close { color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
-        
-        .form-group input, .form-group select {
-            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333;
-            background: var(--bg-dark); color: white; margin-bottom: 15px; outline: none;
-        }
 
-        /* ================================== */
-        /* ESTILOS DA TELA FINANCEIRO         */
-        /* ================================== */
+        /* ESTILOS DA TELA FINANCEIRO */
         .financeiro-resumo {
             display: flex; gap: 10px; margin-bottom: 30px;
         }
@@ -225,7 +229,6 @@
         .resumo-item span { font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;}
         .resumo-item h3 { font-size: 1rem; font-weight: bold; }
         
-        /* Cores dos valores */
         .resumo-item.entradas h3 { color: var(--primary-blue); }
         .resumo-item.saidas h3 { color: var(--danger); }
         .resumo-item.saldo h3 { color: var(--primary-yellow); }
@@ -236,27 +239,22 @@
             border-left: 4px solid transparent;
         }
         .transacao-item.entrada { border-left-color: var(--primary-blue); }
-        .transacao-item.saida { border-left-color: var(--danger); }
+        .transacao-item.pendente { border-left-color: var(--primary-yellow); }
 
         .transacao-item .info h4 { font-size: 0.95rem; margin-bottom: 4px; font-weight: bold; }
         .transacao-item .info p { font-size: 0.75rem; color: var(--text-muted); }
         
         .transacao-item .valor { font-weight: bold; font-size: 1rem; }
         .transacao-item .valor.positivo { color: var(--primary-blue); }
-        .transacao-item .valor.negativo { color: var(--danger); }
+        .transacao-item .valor.pendente { color: var(--primary-yellow); }
 
-        /* Isso impede o gráfico de crescer indefinidamente */
         .chart-container {
-            height: 200px !important; /* Altura fixa */
+            height: 200px !important; 
             width: 100% !important;
             overflow: hidden;
         }
 
-        /* Isso garante que o canvas obedeça ao container */
-        canvas#vendasChart {
-            width: 100% !important;
-            height: 100% !important;
-        }
+        canvas#vendasChart { width: 100% !important; height: 100% !important; }
     </style>
 </head>
 <body>
@@ -271,6 +269,7 @@
 
     <main id="app-content">
         
+        <!-- SESSÃO HOME -->
         <section id="home" class="view active">
             <h2>Visão Geral</h2>
             <div class="cards-grid">
@@ -301,11 +300,12 @@
             </div>
         </section>
 
+        <!-- SESSÃO VENDAS -->
         <section id="vendas" class="view">
             <h2>Nova Venda</h2>
             
             <div class="search-container">
-                <input type="text" id="busca-produto" placeholder="Buscar por nome..." onkeyup="debounceBuscar()">
+                <input type="text" id="busca-produto" placeholder="Buscar produto..." onkeyup="debounceBuscar()">
             </div>
             
             <div id="resultados-busca" class="produtos-list"></div>
@@ -316,7 +316,27 @@
                     <p class="text-muted text-center">Nenhum item adicionado.</p>
                 </div>
                 
-                <div class="cart-total mt-4" style="border-top: 1px solid #333; padding-top: 15px;">
+                <!-- OPÇÕES FINANCEIRAS DA VENDA -->
+                <div class="form-group mt-4" style="background: var(--bg-card); padding: 15px; border-radius: 8px;">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 10px; color: var(--primary-yellow);">Dados do Pagamento</h3>
+                    
+                    <label style="font-size: 0.8rem; color: var(--text-muted);">Cliente (Opcional)</label>
+                    <select id="venda-cliente" style="background: var(--bg-dark);">
+                        <option value="">Cliente Avulso</option>
+                    </select>
+
+                    <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-top: 10px;">Forma de Pagamento</label>
+                    <select id="venda-forma-pagamento" style="background: var(--bg-dark);" onchange="toggleVencimento()">
+                        <option value="Dinheiro">Dinheiro</option>
+                        <option value="PIX">PIX</option>
+                        <option value="Cartão de Crédito">Cartão de Crédito</option>
+                        <option value="Cartão de Débito">Cartão de Débito</option>
+                        <option value="A Prazo">A Prazo</option>
+                    </select>
+
+                </div>
+
+                <div class="cart-total mt-4" style="border-top: 1px solid #333; padding-top: 15px; margin-bottom: 70px;">
                     <h3 style="display: flex; justify-content: space-between;">
                         Total: <span id="total-venda" style="color: var(--primary-yellow)">R$ 0,00</span>
                     </h3>
@@ -325,6 +345,7 @@
             </div>
         </section>
 
+        <!-- SESSÃO ESTOQUE -->
         <section id="estoque" class="view">
             <h2>Estoque</h2>
             
@@ -348,14 +369,12 @@
                     </div>
                     
                     <div class="form-group">
-                        <input type="text" id="prod-nome" placeholder="Nome do Produto (Ex: Mochila Executiva)">
-                         
+                        <input type="text" id="prod-nome" placeholder="Nome do Produto">
                         <select id="prod-categoria">
                             <option value="Produtos">Produtos</option>
                             <option value="Personalizados">Personalizados</option>
                             <option value="Promocionais">Promocionais</option>
                         </select>
-                        
                         <input type="number" id="prod-preco-compra" placeholder="Preço de Compra (R$)" step="0.01">
                         <input type="number" id="prod-preco" placeholder="Preço de Venda (R$)" step="0.01">
                         <input type="number" id="prod-qtd" placeholder="Quantidade">
@@ -366,6 +385,29 @@
             </div>
         </section>
 
+        <!-- SESSÃO CLIENTES -->
+        <section id="clientes" class="view">
+            <h2>Gestão de Clientes</h2>
+            
+            <div class="form-group" style="background: var(--bg-card); padding: 15px; border-radius: 8px;">
+                <h3 style="font-size: 1rem; margin-bottom: 15px;">Novo Cliente</h3>
+                <form id="form-cliente" onsubmit="salvarCliente(event)">
+                    <input type="text" id="cliente-nome" required placeholder="Nome Completo *">
+                    <input type="text" id="cliente-telefone" placeholder="WhatsApp / Telefone">
+                    <input type="text" id="cliente-cpf" placeholder="CPF (Opcional)">
+                    <button type="submit" class="btn-finalizar" style="margin-top: 5px;">Cadastrar Cliente</button>
+                </form>
+            </div>
+
+            <div class="mt-4">
+                <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: var(--text-light);">Clientes Cadastrados</h3>
+                <div id="lista-clientes" style="margin-bottom: 70px;">
+                    <p class="text-center text-muted">Carregando...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SESSÃO FINANCEIRO -->
         <section id="financeiro" class="view">
             <h2>Financeiro</h2>
  
@@ -389,19 +431,71 @@
                 </div>
             </div>
 
+            <h3 style="margin-bottom: 15px; font-size: 1.1rem; color: var(--text-light);">Contas a Receber</h3>
+            <div id="lista-contas-receber" class="transacoes-list" style="margin-bottom: 20px;">
+                <p class="text-center text-muted">Nenhuma conta pendente.</p>
+            </div>
+
             <h3 style="margin-bottom: 15px; font-size: 1.1rem; color: var(--text-light);">Histórico de Transações</h3>
             <div id="lista-transacoes" class="transacoes-list" style="margin-bottom: 70px;">
-                <p class="text-center text-muted mt-4">Carregando histórico...</p>
+                <p class="text-center text-muted">Carregando histórico...</p>
             </div>
         </section>
+        
+        <div id="modal-detalhes-venda" class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3>Detalhes da Venda</h3>
+                    <span class="close" onclick="fecharModalDetalhes()"><i class="fas fa-times"></i></span>
+                </div>
+                
+                <div id="conteudo-detalhes-venda" style="margin-bottom: 20px;">
+                    <p class="text-center text-muted">Carregando itens...</p>
+                </div>
 
-        <section id="perfil" class="view">
-            <h2>Meu Perfil</h2>
-            <p class="text-muted">Em breve: Configurações da conta e da loja.</p>
-        </section>
+                <div style="border-top: 1px solid #333; padding-top: 15px; text-align: center;">
+                    <button id="btn-cancelar-venda" class="btn-finalizar" style="background: var(--danger); color: white; margin-top: 0;">
+                        <i class="fas fa-ban"></i> Cancelar Venda
+                    </button>
+                </div>
+            </div>
+        </div>
 
+        <div id="modal-historico-cliente" class="modal">
+            <div class="modal-content" style="max-height: 85vh; display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 id="nome-historico-cliente" style="font-size: 1.1rem; color: var(--primary-yellow);">Histórico do Cliente</h3>
+                    <span class="close" onclick="fecharModalHistoricoCliente()"><i class="fas fa-times"></i></span>
+                </div>
+                
+                <div id="conteudo-historico-cliente" style="overflow-y: auto; padding-right: 5px;">
+                    <p class="text-center text-muted">Carregando histórico...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL DE RECEBIMENTO DE PAGAMENTO -->
+        <div id="modal-receber-pagamento" class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="font-size: 1.1rem; color: var(--primary-yellow);">Registrar Pagamento</h3>
+                    <span class="close" onclick="fecharModalReceber()"><i class="fas fa-times"></i></span>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <p style="margin-bottom: 5px; font-size: 0.9rem; color: var(--text-muted);">Total da Venda: <strong id="rec-total-venda" style="color: var(--text-light);">R$ 0,00</strong></p>
+                    <p style="margin-bottom: 15px; font-size: 0.9rem; color: var(--text-muted);">Falta Pagar: <strong id="rec-falta-pagar" style="color: var(--primary-yellow); font-size: 1.1rem;">R$ 0,00</strong></p>
+                    
+                    <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Valor sendo pago agora (R$)</label>
+                    <input type="number" id="rec-valor-digitado" placeholder="0.00" step="0.01" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: var(--bg-dark); color: white; outline: none; font-size: 1rem;">
+                </div>
+                
+                <button class="btn-finalizar" onclick="processarRecebimentoParcial()">Confirmar Recebimento</button>
+            </div>
+        </div>
     </main>
 
+    <!-- MENU INFERIOR -->
     <nav class="bottom-nav">
         <button class="nav-btn active" data-target="home">
             <i class="fas fa-home"></i><span>Home</span>
@@ -412,62 +506,22 @@
         <button class="nav-btn" data-target="estoque">
             <i class="fas fa-box"></i><span>Estoque</span>
         </button>
+        <button class="nav-btn" data-target="clientes">
+            <i class="fas fa-users"></i><span>Clientes</span>
+        </button>
         <button class="nav-btn" data-target="financeiro">
             <i class="fas fa-dollar-sign"></i><span>Financeiro</span>
-        </button>
-        <button class="nav-btn" data-target="perfil">
-            <i class="fas fa-user"></i><span>Perfil</span>
         </button>
     </nav>
 
     <script>
-        let meuGrafico = null; // Para gerenciar a instância do gráfico
-
-        function renderizarGraficoVendas(labels, dados) {
-            const ctx = document.getElementById('vendasChart').getContext('2d');
-            
-            // Destrói gráfico anterior se existir (evita sobreposição)
-            if (meuGrafico) meuGrafico.destroy();
-            
-                meuGrafico = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Vendas (R$)',
-                        data: dados,
-                        borderColor: '#D4AF37',
-                        backgroundColor: 'rgba(212, 175, 55, 0.1)',
-                        fill: true,           tension: 0.4
-                    }]
-                },
-                options: { // <--- CORRIGIDO: Removi o 'options' duplicado aqui
-                    responsive: true, 
-                    maintainAspectRatio: false, 
-                    plugins: { 
-                        legend: { display: false } 
-                    }
-                }
-            });
-        }
         const db = supabase.createClient('https://zebbloncwutsxibxjmvo.supabase.co', 'sb_publishable_FOoqjfpszOfY5yMneRutNw_fUaYpFRF');
 
-        // Funções para controlar o Modal de Produtos
-        function abrirModalProduto() {
-            // produtoEditandoId = null; // Garante que é um novo cadastro
-            document.getElementById('modal-produto').style.display = 'flex';
-        }
+        // ==============================
+        // 1. UTILITÁRIOS E NAVEGAÇÃO SPA
+        // ==============================
+        const formatarMoeda = (valor) => Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-        function fecharModalProduto() {
-            document.getElementById('modal-produto').style.display = 'none';
-        }
-
-        // 2. UTILITÁRIOS
-        const formatarMoeda = (valor) => {
-            return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        };
-
-        // 3. NAVEGAÇÃO SPA
         const navButtons = document.querySelectorAll('.nav-btn');
         const views = document.querySelectorAll('.view');
 
@@ -476,30 +530,54 @@
                 navButtons.forEach(b => b.classList.remove('active'));
                 views.forEach(v => v.classList.remove('active'));
                 btn.classList.add('active');
+                
                 const targetViewId = btn.getAttribute('data-target');
                 document.getElementById(targetViewId).classList.add('active');
 
                 if (targetViewId === 'home') carregarDashboard();
                 if (targetViewId === 'estoque') carregarEstoque();
                 if (targetViewId === 'financeiro') carregarFinanceiro();
+                if (targetViewId === 'clientes') carregarClientes();
+                if (targetViewId === 'vendas') carregarDropdownClientes();
             });
         });
 
-        // 4. LÓGICA DO DASHBOARD (Com tratamento de erro)
+        // ==============================
+        // 2. DASHBOARD
+        // ==============================
+        let meuGrafico = null;
+        function renderizarGraficoVendas(labels, dados) {
+            const ctx = document.getElementById('vendasChart').getContext('2d');
+            if (meuGrafico) meuGrafico.destroy();
+            
+            meuGrafico = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Vendas (R$)',
+                        data: dados,
+                        borderColor: '#D4AF37',
+                        backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                        fill: true, tension: 0.4
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
         async function carregarDashboard() {
             try {
-                // Busca os dados do Supabase
-                const { data: vendas, error: errVendas } = await db.from('vendas').select('valor_total, data_venda');
-                const { data: produtos, error: errProdutos } = await db.from('produtos').select('quantidade_atual, preco_venda, nome, estoque_minimo');
+                const { data: vendas } = await db.from('vendas').select('valor_total, data_venda').eq('status_pagamento', 'Pago');
+                const { data: produtos } = await db.from('produtos').select('quantidade_atual, preco_venda, nome, estoque_minimo');
 
-                if (errVendas) console.error("Erro ao buscar vendas:", errVendas);
-                if (errProdutos) console.error("Erro ao buscar produtos:", errProdutos);
-
-                // Garante que ambos sejam arrays vazios se forem null
                 const vendasArray = vendas || [];
                 const produtosArray = produtos || [];
 
-                // 1. Lógica do Gráfico
                 const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
                 const dadosGrafico = new Array(12).fill(0);
                 
@@ -509,370 +587,655 @@
                 });
                 renderizarGraficoVendas(meses, dadosGrafico);
 
-                // 2. Atualiza cards
                 const totalVendas = vendasArray.reduce((acc, v) => acc + (v.valor_total || 0), 0);
                 const totalEstoque = produtosArray.reduce((acc, p) => acc + (p.quantidade_atual * p.preco_venda), 0);
                 
                 document.getElementById('metric-vendas').innerText = formatarMoeda(totalVendas);
+                document.getElementById('metric-caixa').innerText = formatarMoeda(totalVendas);
                 document.getElementById('metric-estoque').innerText = formatarMoeda(totalEstoque);
 
-                // 3. Baixo estoque (agora usando a variável protegida)
                 const listaEstoque = document.getElementById('low-stock-list');
-                const produtosBaixo = produtosArray.filter(p => p.quantidade_atual <= p.estoque_minimo);
+                const produtosBaixo = produtosArray.filter(p => p.quantidade_atual <= (p.estoque_minimo || 5));
                 
                 listaEstoque.innerHTML = produtosBaixo.length > 0 ? 
                     produtosBaixo.map(p => `<div class="stock-item"><h4>${p.nome}</h4><p>Qtd: ${p.quantidade_atual}</p></div>`).join('') :
                     '<p class="text-center text-muted mt-4">Estoque regularizado.</p>';
-                    
             } catch (error) {
                 console.error("Erro no Dashboard:", error);
             }
         }
 
+        // ==============================
+        // 3. ESTOQUE E PRODUTOS
+        // ==============================
+        let produtoEditandoId = null;
+
+        function abrirModalProduto() { document.getElementById('modal-produto').style.display = 'flex'; }
+        function fecharModalProduto() { 
+            document.getElementById('modal-produto').style.display = 'none';
+            produtoEditandoId = null;
+        }
+
+        async function carregarEstoque() {
+            try {
+                const { data, error } = await db.from('produtos').select('*').order('nome');
+                if (error) throw error;
+                
+                const div = document.getElementById('lista-estoque');
+                div.innerHTML = (data || []).map(p => `
+                    <div class="estoque-item">
+                        <div>
+                            <h4>${p.nome}</h4>
+                            <p>Venda: ${formatarMoeda(p.preco_venda)} | Custo: ${formatarMoeda(p.preco_compra)}</p>
+                        </div>
+                        <div class="valores">
+                            <span class="qtd">Qtd: ${p.quantidade_atual}</span>
+                            <div style="display: flex; gap: 10px; margin-top: 5px; justify-content: flex-end;">
+                                <button onclick="editarProduto('${p.id}', '${p.nome.replace(/'/g, "\\'")}', ${p.preco_compra}, ${p.preco_venda}, ${p.quantidade_atual}, '${p.categoria}')" 
+                                        style="background:none; border:none; color:var(--primary-yellow); cursor:pointer;">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deletarProduto('${p.id}', '${p.nome.replace(/'/g, "\\'")}')" 
+                                        style="background:none; border:none; color:var(--danger); cursor:pointer;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) { console.error("Erro ao carregar estoque:", err); }
+        }
+
+        function editarProduto(id, nome, precoCompra, precoVenda, qtd, categoria) {
+            produtoEditandoId = id; 
+            document.getElementById('prod-nome').value = nome;
+            document.getElementById('prod-preco-compra').value = precoCompra;
+            document.getElementById('prod-preco').value = precoVenda;
+            document.getElementById('prod-qtd').value = qtd;
+            document.getElementById('prod-categoria').value = categoria;
+            abrirModalProduto();
+        }
+
         async function salvarProduto() {
-
-            console.log("ID do produto a editar:", produtoEditandoId);
-
             const nome = document.getElementById('prod-nome').value;
             const precoCompra = parseFloat(document.getElementById('prod-preco-compra').value);
             const categoria = document.getElementById('prod-categoria').value;
             const precoVenda = parseFloat(document.getElementById('prod-preco').value);
             const qtd = parseInt(document.getElementById('prod-qtd').value);
 
-            if (!nome || isNaN(precoCompra)) {
-                alert("Preencha o Nome e o Preço de Compra!");
-                return;
-            }
+            if (!nome || isNaN(precoCompra)) return alert("Preencha o Nome e o Preço de Compra!");
 
-            const dadosProduto = { 
-                nome: nome, 
-                categoria: categoria, 
-                preco_compra: precoCompra, 
-                preco_venda: precoVenda, 
-                quantidade_atual: qtd 
-            };
+            const dadosProduto = { nome, categoria, preco_compra: precoCompra, preco_venda: precoVenda, quantidade_atual: qtd };
 
             try {
                 if (produtoEditandoId) {
-                    // ATUALIZAÇÃO: O .eq('id', produtoEditandoId) é o que evita criar um novo registro
-                    const { error } = await db.from('produtos')
-                        .update(dadosProduto)
-                        .eq('id', produtoEditandoId); // <--- ESTA É A LINHA QUE DEFINE QUE É O MESMO PRODUTO
-
-                    if (error) throw error;
-                    alert("Produto atualizado com sucesso!");
+                    await db.from('produtos').update(dadosProduto).eq('id', produtoEditandoId);
+                    alert("Produto atualizado!");
                 } else {
-                    // INSERÇÃO: Caso não haja ID, cria novo
-                    const { error } = await db.from('produtos').insert([dadosProduto]);
-                    if (error) throw error;
-                    alert("Produto salvo com sucesso!");
+                    await db.from('produtos').insert([dadosProduto]);
+                    alert("Produto salvo!");
                 }
-
-                // Limpeza e reset
-                produtoEditandoId = null; 
                 fecharModalProduto();
                 carregarEstoque();
-            } catch (err) {
-                console.error("Erro:", err);
-                alert("Erro: " + err.message);
-            }
-        }
-
-        async function calcularLucroMensal() {
-            try {
-                const { data: itens, error } = await db
-                    .from('itens_venda')
-                    .select(`
-                        quantidade,
-                        vendas(data_venda),
-                        produtos(preco_compra, preco_venda)
-                    `);
-
-                if (error) throw error;
-
-                const lucrosPorMes = new Array(12).fill(0);
-
-                (itens || []).forEach(item => {
-                    if (item.vendas && item.produtos) {
-                        const dataVenda = new Date(item.vendas.data_venda);
-                        const mes = dataVenda.getMonth();
-                        
-                        // Lucro = (Preço Venda - Preço Custo) * Quantidade
-                        const lucroItem = (item.produtos.preco_venda - item.produtos.preco_compra) * item.quantidade;
-                        lucrosPorMes[mes] += lucroItem;
-                    }
-                });
-
-                return lucrosPorMes;
-            } catch (err) {
-                console.error("Erro ao calcular lucro:", err);
-                return new Array(12).fill(0);
-            }
-        }
-
-        // 5. LÓGICA DE ESTOQUE (Com tratamento de erro)
-        async function carregarEstoque() {
-            try {
-                const { data, error } = await db.from('produtos').select('*');
-                if (error) throw error;
-                
-                const div = document.getElementById('lista-estoque');
-                if (div) {
-                    // Substitua o map dentro de carregarEstoque por isto:
-                    div.innerHTML = (data || []).map(p => `
-                        <div class="estoque-item">
-                            <div>
-                                <h4>${p.nome}</h4>
-                                <p>Preço Venda: ${formatarMoeda(p.preco_venda)}</p>
-                            </div>
-                            <div class="valores">
-                                <span class="qtd">Qtd: ${p.quantidade_atual}</span>
-                                <div style="display: flex; gap: 10px; margin-top: 5px;">
-                                    <button onclick="editarProduto('${p.id}', '${p.nome}', ${p.preco_compra}, ${p.preco_venda}, ${p.quantidade_atual}, '${p.categoria}')" 
-                                            style="background:none; border:none; color:var(--primary-yellow); cursor:pointer;">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button onclick="deletarProduto('${p.id}', '${p.nome}')" 
-                                            style="background:none; border:none; color:var(--danger); cursor:pointer;">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('');
-                }
-            } catch (err) {
-                console.error("Erro ao carregar estoque:", err);
-            }
-        }
-
-        let produtoEditandoId = null; // Variável global para rastrear o ID
-
-       function editarProduto(id, nome, precoCompra, precoVenda, qtd, categoria) {
-            produtoEditandoId = id; 
-            console.log("ID do produto capturado para edição:", produtoEditandoId); // ADICIONE ISSO
-            
-            document.getElementById('prod-nome').value = nome;
-            document.getElementById('prod-preco-compra').value = precoCompra;
-            document.getElementById('prod-preco').value = precoVenda;
-            document.getElementById('prod-qtd').value = qtd;
-            document.getElementById('prod-categoria').value = categoria;
-            
-            abrirModalProduto();
+            } catch (err) { alert("Erro: " + err.message); }
         }
 
         async function deletarProduto(id, nome) {
-            if (!confirm(`Tem certeza que deseja excluir o produto "${nome}"?`)) {
-                return; // Cancela se o usuário clicar em "Cancelar"
-            }
+            if (!confirm(`Excluir o produto "${nome}"?`)) return;
+            try {
+                await db.from('produtos').delete().eq('id', id);
+                carregarEstoque();
+            } catch (err) { alert("Erro: " + err.message); }
+        }
+
+        // ==============================
+        // 4. CLIENTES
+        // ==============================
+        async function salvarCliente(e) {
+            e.preventDefault();
+            const nome = document.getElementById('cliente-nome').value;
+            const telefone = document.getElementById('cliente-telefone').value;
+            const cpf = document.getElementById('cliente-cpf').value;
 
             try {
-                const { error } = await db.from('produtos').delete().eq('id', id);
+                const { error } = await db.from('clientes').insert([{ nome, telefone, cpf }]);
+                if (error) throw error;
                 
+                alert("Cliente cadastrado!");
+                document.getElementById('form-cliente').reset();
+                carregarClientes();
+            } catch (error) { alert("Erro ao salvar: " + error.message); }
+        }
+
+        async function carregarClientes() {
+            try {
+                const { data, error } = await db.from('clientes').select('*').order('nome');
+                if (error) throw error;
+                
+                const div = document.getElementById('lista-clientes');
+                
+                if (!data || data.length === 0) {
+                    div.innerHTML = '<p class="text-center text-muted">Nenhum cliente cadastrado.</p>';
+                    return;
+                }
+
+                div.innerHTML = data.map(c => `
+                    <div class="cliente-item" onclick="abrirHistoricoCliente('${c.id}', '${c.nome.replace(/'/g, "\\'")}')" style="cursor: pointer;" title="Clique para ver o histórico">
+                        <div>
+                            <h4>${c.nome}</h4>
+                            <p><i class="fab fa-whatsapp"></i> ${c.telefone || 'Sem telefone'}</p>
+                        </div>
+                        <i class="fas fa-chevron-right" style="color: var(--text-muted);"></i>
+                    </div>
+                `).join('');
+            } catch (err) { 
+                console.error("Erro ao carregar clientes:", err); 
+            }
+        }
+
+        async function carregarDropdownClientes() {
+            try {
+                const { data, error } = await db.from('clientes').select('*').order('nome');
                 if (error) throw error;
 
-                alert("Produto deletado com sucesso!");
-                carregarEstoque(); // Atualiza a lista na tela
-            } catch (err) {
-                console.error("Erro ao deletar:", err);
-                alert("Erro ao excluir: " + err.message);
+                const select = document.getElementById('venda-cliente');
+                select.innerHTML = '<option value="">Cliente Avulso</option>' + 
+                    (data || []).map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+            } catch (err) { 
+                console.error("Erro ao carregar dropdown de clientes:", err); 
             }
         }
 
-        let graficoLucro = null;
-
-        function renderizarGraficoLucro(dados) {
-            const ctx = document.getElementById('lucroChart').getContext('2d');
-            if (graficoLucro) graficoLucro.destroy();
-
-            graficoLucro = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
-                    datasets: [{
-                        label: 'Lucro Líquido (R$)',
-                        data: dados,
-                        backgroundColor: '#D4AF37'
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+        function fecharModalHistoricoCliente() { 
+            document.getElementById('modal-historico-cliente').style.display = 'none'; 
         }
 
-        // --- FUNÇÃO ÚNICA E CORRETA ---
-        async function carregarFinanceiro() {
-            try {
-                // 1. Busca vendas
-                const { data: vendas, error: errVendas } = await db
-                    .from('vendas')
-                    .select('id, valor_total, data_venda');
-                
-                if (errVendas) throw errVendas;
+        async function abrirHistoricoCliente(clienteId, nomeCliente) {
+            document.getElementById('modal-historico-cliente').style.display = 'flex';
+            document.getElementById('nome-historico-cliente').innerText = `Histórico: ${nomeCliente}`;
+            const div = document.getElementById('conteudo-historico-cliente');
+            div.innerHTML = '<p class="text-center text-muted">Buscando histórico e itens...</p>';
 
-                // 2. Renderiza o histórico de transações
-                const listaTransacoes = document.getElementById('lista-transacoes');
-                if (listaTransacoes) {
-                    listaTransacoes.innerHTML = (vendas || []).map(v => `
-                        <div class="transacao-item entrada">
-                            <div class="info">
-                                <h4>Venda Realizada</h4>
-                                <p>${new Date(v.data_venda).toLocaleDateString()}</p>
+            try {
+                const { data: vendas, error } = await db.from('vendas')
+                    .select(`
+                        *,
+                        itens_venda (
+                            quantidade,
+                            produtos (nome)
+                        )
+                    `)
+                    .eq('cliente_id', clienteId)
+                    .order('data_venda', { ascending: false });
+
+                if (error) throw error;
+
+                if (!vendas || vendas.length === 0) {
+                    div.innerHTML = '<p class="text-center text-muted" style="margin-top: 20px;">Nenhuma compra registrada para este cliente.</p>';
+                    return;
+                }
+
+                let html = '';
+                vendas.forEach(v => {
+                    const statusCor = v.status_pagamento === 'Pago' ? 'var(--success)' : (v.status_pagamento === 'Cancelada' ? 'var(--danger)' : 'var(--primary-yellow)');
+                    
+                    let itensHtml = '';
+                    if (v.itens_venda && v.itens_venda.length > 0) {
+                        v.itens_venda.forEach(item => {
+                            const nomeProduto = item.produtos ? item.produtos.nome : 'Produto excluído';
+                            itensHtml += `<li><i class="fas fa-caret-right" style="color: var(--text-muted); margin-right: 5px;"></i> ${item.quantidade}x ${nomeProduto}</li>`;
+                        });
+                    } else {
+                        itensHtml = '<li>Nenhum item encontrado</li>';
+                    }
+
+                    let pagamentosHtml = '';
+                    const historico = v.historico_pagamentos || [];
+                    if (historico.length > 0) {
+                        pagamentosHtml = `
+                            <div style="background: #121212; padding: 8px; border-radius: 6px; margin-top: 8px; font-size: 0.85rem;">
+                                <strong style="color: var(--text-muted);">Pagamentos Registrados:</strong><br>
+                                ${historico.map(h => `<span style="color: var(--text-light);">- ${new Date(h.data).toLocaleDateString('pt-BR')}: ${formatarMoeda(h.valor)}</span>`).join('<br>')}
+                            </div>`;
+                    }
+
+                    html += `
+                        <div style="background: var(--bg-dark); padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <strong style="font-size: 1.05rem;">${new Date(v.data_venda).toLocaleDateString('pt-BR')}</strong>
+                                <span style="color: ${statusCor}; font-weight: bold;">${v.status_pagamento}</span>
                             </div>
-                            <div class="valor positivo">
-                                + ${formatarMoeda(v.valor_total)}
+                            
+                            <p style="font-size: 0.9rem; margin-bottom: 8px; color: var(--text-light);">Forma: ${v.forma_pagamento}</p>
+                            
+                            <div style="background: #1a1a1a; padding: 8px; border-radius: 6px; margin-bottom: 8px;">
+                                <strong style="font-size: 0.85rem; color: var(--text-muted);">Produtos Comprados:</strong>
+                                <ul style="list-style: none; padding-left: 0; margin-top: 5px; font-size: 0.85rem; color: var(--text-light);">
+                                    ${itensHtml}
+                                </ul>
+                            </div>
+                            
+                            ${pagamentosHtml}
+                            
+                            <div style="text-align: right; margin-top: 10px;">
+                                <p style="font-size: 1.1rem; color: var(--primary-yellow); font-weight: bold; margin: 0;">Total: ${formatarMoeda(v.valor_total)}</p>
                             </div>
                         </div>
-                    `).join('');
-                }
+                    `;
+                });
 
-                // 3. Atualiza os cards
-                const totalEntradas = (vendas || []).reduce((acc, v) => acc + (v.valor_total || 0), 0);
-                document.getElementById('fin-entradas').innerText = formatarMoeda(totalEntradas);
-                document.getElementById('fin-saidas').innerText = formatarMoeda(0);
-                document.getElementById('fin-saldo').innerText = formatarMoeda(totalEntradas);
-
-                // 4. Renderiza o gráfico
-                const dadosLucro = await calcularLucroMensal();
-                renderizarGraficoLucro(dadosLucro);
-
+                div.innerHTML = html;
             } catch (err) {
-                console.error("Erro no Financeiro:", err);
+                div.innerHTML = `<p class="text-center" style="color: var(--danger);">Erro ao carregar histórico: ${err.message}</p>`;
+                console.error("Erro no histórico do cliente:", err);
             }
         }
 
-        // 6. LÓGICA DE VENDAS (Exemplo de estrutura)
-        async function finalizarVenda(carrinho, total) {
-            try {
-                const { data: venda, error: errV } = await db.from('vendas').insert([{ valor_total: total }]).select();
-                if (errV) throw errV;
-
-                for (let item of carrinho) {
-                    await db.from('itens_venda').insert([{ 
-                        venda_id: venda[0].id, 
-                        produto_id: item.produto_id,
-                        quantidade: item.quantidade 
-                    }]);
-                    
-                    await db.from('produtos')
-                        .update({ quantidade_atual: item.estoque_max - item.quantidade })
-                        .eq('id', item.produto_id);
-                }
-                alert("Venda finalizada!");
-                carregarDashboard();
-            } catch (err) {
-                alert("Erro: " + err.message);
-            }
-        }
+        // ==============================
+        // 5. VENDAS E PDV
+        // ==============================
+        let carrinho = [];
 
         async function debounceBuscar() {
             const termo = document.getElementById('busca-produto').value;
-            const divResultados = document.getElementById('resultados-busca');
-            
-            if (termo.length < 1) {
-                divResultados.innerHTML = '';
-                return;
-            }
+            const div = document.getElementById('resultados-busca');
+            if (termo.length < 1) { div.innerHTML = ''; return; }
 
-            const { data, error } = await db
-                .from('produtos')
-                .select('*')
-                .ilike('nome', `%${termo}%`);
-
-            if (error) {
-                console.error("Erro na busca:", error);
-                return;
-            }
-
-            divResultados.innerHTML = data.map(p => `
+            const { data } = await db.from('produtos').select('*').ilike('nome', `%${termo}%`);
+            div.innerHTML = (data||[]).map(p => `
                 <div class="produto-item">
                     <div>
                         <h4>${p.nome}</h4>
-                        <p>Estoque: ${p.quantidade_atual} | R$ ${p.preco_venda}</p>
+                        <p>Est: ${p.quantidade_atual} | R$ ${p.preco_venda}</p>
                     </div>
                     <button class="btn-add" onclick="adicionarAoCarrinho('${p.id}', '${p.nome.replace(/'/g, "\\'")}', ${p.preco_venda}, ${p.quantidade_atual})">+</button>
                 </div>
             `).join('');
         }
-        // 7. INICIALIZAÇÃO
-        document.addEventListener('DOMContentLoaded', () => {
-            carregarDashboard();
-        });
-
-        // Array para armazenar os produtos do carrinho
-        let carrinho = [];
 
         function adicionarAoCarrinho(id, nome, preco, estoqueMax) {
-            // Procura se o produto já está no carrinho
-            const itemNoCarrinho = carrinho.find(item => item.produto_id === id);
-            const qtdNoCarrinho = itemNoCarrinho ? itemNoCarrinho.quantidade : 0;
+            const itemExistente = carrinho.find(item => item.produto_id === id);
+            const qtd = itemExistente ? itemExistente.quantidade : 0;
 
-            // Validação: Verifica se a próxima unidade excede o estoque
-            if (qtdNoCarrinho + 1 > estoqueMax) {
-                alert("Quantidade insuficiente em estoque!");
-                return;
-            }
+            if (qtd + 1 > estoqueMax) return alert("Estoque insuficiente!");
 
-            if (itemNoCarrinho) {
-                itemNoCarrinho.quantidade += 1;
-            } else {
-                carrinho.push({
-                    produto_id: id,
-                    nome: nome,
-                    preco: preco,
-                    quantidade: 1,
-                    estoque_max: estoqueMax // Guardamos o limite para consultas futuras
-                });
-            }
+            if (itemExistente) itemExistente.quantidade++;
+            else carrinho.push({ produto_id: id, nome, preco, quantidade: 1, estoque_max: estoqueMax });
 
             atualizarInterfaceCarrinho();
         }
 
         function atualizarInterfaceCarrinho() {
-            const divCarrinho = document.getElementById('itens-carrinho');
+            const div = document.getElementById('itens-carrinho');
             const totalElement = document.getElementById('total-venda');
             
             if (carrinho.length === 0) {
-                divCarrinho.innerHTML = '<p class="text-muted text-center">Nenhum item adicionado.</p>';
+                div.innerHTML = '<p class="text-muted text-center">Nenhum item adicionado.</p>';
                 totalElement.innerText = formatarMoeda(0);
                 return;
             }
 
-            // Renderiza os itens
-            divCarrinho.innerHTML = carrinho.map((item, index) => `
+            div.innerHTML = carrinho.map((item, i) => `
                 <div class="cart-item">
-                    <div>
-                        <h4>${item.nome}</h4>
-                        <p>R$ ${item.preco.toFixed(2)}</p>
-                    </div>
+                    <div><h4>${item.nome}</h4><p>R$ ${item.preco.toFixed(2)}</p></div>
                     <div class="cart-controls">
-                        <button class="btn-qtd" onclick="removerDoCarrinho(${index})">-</button>
+                        <button class="btn-qtd" onclick="removerDoCarrinho(${i})">-</button>
                         <span>${item.quantidade}</span>
-                        <button class="btn-qtd" onclick="adicionarMaisUm(${index})">+</button>
+                        <button class="btn-qtd" onclick="adicionarMaisUm(${i})">+</button>
                     </div>
                 </div>
             `).join('');
 
-            // Calcula o total
             const total = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
             totalElement.innerText = formatarMoeda(total);
         }
 
-        function removerDoCarrinho(index) {
-            carrinho.splice(index, 1);
-            atualizarInterfaceCarrinho();
+        function removerDoCarrinho(i) { carrinho[i].quantidade > 1 ? carrinho[i].quantidade-- : carrinho.splice(i, 1); atualizarInterfaceCarrinho(); }
+        function adicionarMaisUm(i) { 
+            if(carrinho[i].quantidade + 1 > carrinho[i].estoque_max) return alert("Limite de estoque!");
+            carrinho[i].quantidade++; atualizarInterfaceCarrinho(); 
         }
 
-        function adicionarMaisUm(index) {
-            const item = carrinho[index];
+        function toggleVencimento() {}
+
+        async function finalizarVenda() {
+            if (carrinho.length === 0) return alert("Adicione itens ao carrinho!");
+
+            const total = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
+            const clienteId = document.getElementById('venda-cliente').value || null;
+            const formaPagamento = document.getElementById('venda-forma-pagamento').value;
             
-            if (item.quantidade + 1 > item.estoque_max) {
-                alert("Limite de estoque atingido!");
-                return;
+            let dataVencimento = null;
+
+            if (formaPagamento === 'A Prazo') {
+                if (!clienteId) return alert("⚠️ Atenção: Para vendas a prazo, é OBRIGATÓRIO selecionar um cliente!");
+                
+                const dataCalculada = new Date();
+                dataCalculada.setDate(dataCalculada.getDate() + 30);
+                dataVencimento = dataCalculada.toISOString().split('T')[0]; 
+            }
+
+            const statusPagamento = formaPagamento === 'A Prazo' ? 'Pendente' : 'Pago';
+
+            try {
+                const { data: venda, error: errV } = await db.from('vendas').insert([{ 
+                    valor_total: total,
+                    cliente_id: clienteId,
+                    forma_pagamento: formaPagamento,
+                    status_pagamento: statusPagamento,
+                    data_vencimento: dataVencimento
+                }]).select();
+                
+                if (errV) throw new Error("Erro ao salvar venda principal: " + errV.message);
+                
+                const vendaIdGerada = venda[0].id;
+
+                for (let item of carrinho) {
+                    const { error: errItem } = await db.from('itens_venda').insert([{ 
+                        venda_id: vendaIdGerada, 
+                        produto_id: item.produto_id, 
+                        quantidade: item.quantidade,
+                        preco_unitario: item.preco 
+                    }]);
+                    
+                    if (errItem) throw new Error("Erro ao salvar o item " + item.nome + ": " + errItem.message);
+
+                    const { error: errEstoque } = await db.from('produtos').update({ 
+                        quantidade_atual: item.estoque_max - item.quantidade 
+                    }).eq('id', item.produto_id);
+
+                    if (errEstoque) throw new Error("Erro ao atualizar estoque do produto " + item.nome);
+                }
+
+                if (statusPagamento === 'Pago') {
+                    const { error: errTransacao } = await db.from('transacoes_financeiras').insert([{
+                        tipo: 'Entrada',
+                        categoria: 'Vendas',
+                        valor: total,
+                        data_transacao: new Date().toISOString(),
+                        descricao: `Venda à vista (${formaPagamento})`
+                    }]);
+
+                    if (errTransacao) {
+                        console.error("Erro em transacoes_financeiras:", errTransacao);
+                        alert("⚠️ A venda foi salva, mas a transação financeira falhou: " + errTransacao.message);
+                    }
+                }
+
+                alert("Venda finalizada com sucesso!");
+                carrinho = [];
+                atualizarInterfaceCarrinho();
+                document.getElementById('busca-produto').value = '';
+                document.getElementById('resultados-busca').innerHTML = '';
+            } catch (err) { 
+                alert("❌ " + err.message); 
+                console.error("Erro ao finalizar:", err);
+            }
+        }
+
+        // ==============================
+        // 6. FINANCEIRO E CONTAS A RECEBER
+        // ==============================
+        let graficoLucro = null;
+        function renderizarGraficoLucro(dados) {
+            const ctx = document.getElementById('lucroChart').getContext('2d');
+            if (graficoLucro) graficoLucro.destroy();
+            graficoLucro = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
+                    datasets: [{ label: 'Lucro (R$)', data: dados, backgroundColor: '#D4AF37' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        async function carregarFinanceiro() {
+            try {
+                const { data: vendas, error: errVendas } = await db.from('vendas').select(`
+                    id, valor_total, data_venda, status_pagamento, forma_pagamento, data_vencimento, valor_pago,
+                    clientes (nome)
+                `).order('data_venda', { ascending: false });
+                
+                if (errVendas) throw errVendas;
+
+                const listaTransacoes = document.getElementById('lista-transacoes');
+                const listaContas = document.getElementById('lista-contas-receber');
+                
+                let contasPendentesHTML = '';
+                let transacoesGeraisHTML = '';
+                let totalEntradasPagos = 0;
+
+                (vendas || []).forEach(v => {
+                    const nomeCliente = v.clientes ? v.clientes.nome : 'Cliente Avulso';
+                    const pago = v.valor_pago || 0;
+                    
+                    if (v.status_pagamento === 'Pendente') {
+                        const dataVenc = v.data_vencimento ? new Date(v.data_vencimento).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : 'Sem data';
+                        const valorRestante = v.valor_total - pago;
+
+                        contasPendentesHTML += `
+                            <div class="transacao-item pendente" onclick="abrirDetalhesVenda('${v.id}')" style="cursor: pointer;" title="Clique para ver os itens">
+                                <div class="info">
+                                    <h4>${nomeCliente}</h4>
+                                    <p>Vence: ${dataVenc}</p>
+                                </div>
+                                <div style="display:flex; align-items:center; gap: 10px;">
+                                    <span class="valor pendente">${formatarMoeda(valorRestante)}</span>
+                                    <button class="btn-baixa" onclick="event.stopPropagation(); abrirModalReceber('${v.id}', ${v.valor_total}, ${pago})">Receber</button>
+                                </div>
+                            </div>`;
+                    } else if (v.status_pagamento === 'Cancelada') {
+                        transacoesGeraisHTML += `
+                            <div class="transacao-item" style="border-left-color: var(--text-muted); opacity: 0.6; cursor: pointer;" onclick="abrirDetalhesVenda('${v.id}')">
+                                <div class="info">
+                                    <h4><strike>Venda - ${v.forma_pagamento}</strike> (Cancelada)</h4>
+                                    <p>${new Date(v.data_venda).toLocaleDateString()} - ${nomeCliente}</p>
+                                </div>
+                                <div class="valor" style="color: var(--text-muted);"><strike>${formatarMoeda(v.valor_total)}</strike></div>
+                            </div>`;
+                    } else {
+                        totalEntradasPagos += v.valor_total;
+                        transacoesGeraisHTML += `
+                            <div class="transacao-item entrada" onclick="abrirDetalhesVenda('${v.id}')" style="cursor: pointer;" title="Clique para ver os itens">
+                                <div class="info">
+                                    <h4>Venda - ${v.forma_pagamento}</h4>
+                                    <p>${new Date(v.data_venda).toLocaleDateString()} - ${nomeCliente}</p>
+                                </div>
+                                <div class="valor positivo">+ ${formatarMoeda(v.valor_total)}</div>
+                            </div>`;
+                    }
+                });
+
+                listaContas.innerHTML = contasPendentesHTML || '<p class="text-center text-muted">Nenhuma conta pendente.</p>';
+                listaTransacoes.innerHTML = transacoesGeraisHTML || '<p class="text-center text-muted">Nenhuma transação paga.</p>';
+
+                document.getElementById('fin-entradas').innerText = formatarMoeda(totalEntradasPagos);
+                document.getElementById('fin-saidas').innerText = formatarMoeda(0);
+                document.getElementById('fin-saldo').innerText = formatarMoeda(totalEntradasPagos);
+
+                renderizarGraficoLucro([0,0,0,0, totalEntradasPagos*0.3, 0,0,0,0,0,0,0]); 
+
+            } catch (err) { 
+                console.error("Erro no Financeiro:", err); 
+            }
+        }
+
+        let recVendaId = null;
+        let recTotal = 0;
+        let recPago = 0;
+
+        function fecharModalReceber() { 
+            document.getElementById('modal-receber-pagamento').style.display = 'none'; 
+        }
+        
+        function abrirModalReceber(id, total, pago) {
+            recVendaId = id; 
+            recTotal = total; 
+            recPago = pago || 0;
+            const falta = recTotal - recPago;
+            
+            document.getElementById('rec-total-venda').innerText = formatarMoeda(recTotal);
+            document.getElementById('rec-falta-pagar').innerText = formatarMoeda(falta);
+            document.getElementById('rec-valor-digitado').value = falta.toFixed(2); 
+            
+            document.getElementById('modal-receber-pagamento').style.display = 'flex';
+        }
+
+        async function processarRecebimentoParcial() {
+            const valorInput = parseFloat(document.getElementById('rec-valor-digitado').value);
+            
+            if (isNaN(valorInput) || valorInput <= 0) {
+                return alert("Por favor, insira um valor válido!");
             }
             
-            item.quantidade += 1;
-            atualizarInterfaceCarrinho();
+            const falta = recTotal - recPago;
+            if (valorInput > falta) {
+                return alert("O valor recebido não pode ser maior do que o restante da dívida!");
+            }
+
+            try {
+                const { data: vendaAtual, error: errBusca } = await db.from('vendas').select('historico_pagamentos').eq('id', recVendaId).single();
+                if (errBusca) throw errBusca;
+
+                let historico = vendaAtual.historico_pagamentos || [];
+                historico.push({ data: new Date().toISOString(), valor: valorInput });
+                
+                const novoValorPago = recPago + valorInput;
+                const novoStatus = novoValorPago >= recTotal ? 'Pago' : 'Pendente';
+
+                const { error: errUpdate } = await db.from('vendas').update({ 
+                    valor_pago: novoValorPago, 
+                    historico_pagamentos: historico, 
+                    status_pagamento: novoStatus 
+                }).eq('id', recVendaId);
+
+                if (errUpdate) throw errUpdate;
+
+                alert(novoStatus === 'Pago' ? "Conta quitada com sucesso!" : "Pagamento parcial registrado com sucesso!");
+                
+                fecharModalReceber();
+                carregarFinanceiro();
+                carregarDashboard();
+                
+            } catch (err) { 
+                alert("Erro ao registrar pagamento: " + err.message); 
+                console.error(err);
+            }
         }
+
+        function fecharModalDetalhes() {
+            document.getElementById('modal-detalhes-venda').style.display = 'none';
+        }
+
+        async function abrirDetalhesVenda(idVenda) {
+            document.getElementById('modal-detalhes-venda').style.display = 'flex';
+            const divConteudo = document.getElementById('conteudo-detalhes-venda');
+            divConteudo.innerHTML = '<p class="text-center text-muted">Buscando produtos...</p>';
+
+            try {
+                const { data: venda, error: errVenda } = await db.from('vendas').select('*').eq('id', idVenda).single();
+                if (errVenda) throw errVenda;
+
+                let { data: itens, error: errItens } = await db.from('itens_venda').select('*').eq('venda_id', idVenda);
+                
+                if ((!itens || itens.length === 0) && !errItens) {
+                    const alt = await db.from('itens_venda').select('*').eq('id_venda', idVenda);
+                    itens = alt.data;
+                }
+
+                let html = '<ul style="list-style: none; padding: 0;">';
+                
+                if (!itens || itens.length === 0) {
+                    html += '<p class="text-center text-muted">Nenhum produto encontrado nesta venda.</p>';
+                } else {
+                    for (let item of itens) {
+                        const prodId = item.produto_id || item.id_produto;
+                        const qtd = item.quantidade || 1;
+
+                        const { data: prod } = await db.from('produtos').select('nome, preco_venda').eq('id', prodId).single();
+                        
+                        const nomeProd = prod ? prod.nome : 'Produto Deletado';
+                        const preco = prod ? (item.preco_unitario || prod.preco_venda) : 0;
+                        const totalItem = preco * qtd;
+                        
+                        html += `
+                            <li style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333;">
+                                <span style="color: var(--text-light);">${qtd}x ${nomeProd}</span>
+                                <span style="color: var(--primary-yellow); font-weight: bold;">${formatarMoeda(totalItem)}</span>
+                            </li>`;
+                    }
+                }
+
+                html += `</ul>
+                         <div style="text-align: right; margin-top: 15px; font-size: 1.1rem; font-weight: bold;">
+                            Total: ${formatarMoeda(venda.valor_total)}
+                         </div>`;
+                
+                divConteudo.innerHTML = html;
+
+                const containerBotao = document.getElementById('btn-cancelar-venda').parentElement;
+                
+                if (venda && venda.status_pagamento === 'Cancelada') {
+                    containerBotao.innerHTML = '<p class="text-center text-muted" style="font-size: 0.9rem;">Esta venda já está cancelada.</p>';
+                } else {
+                    containerBotao.innerHTML = `
+                        <button id="btn-cancelar-venda" class="btn-finalizar" style="background: var(--danger); color: white; margin-top: 0;" onclick="cancelarVenda('${idVenda}')">
+                            <i class="fas fa-ban"></i> Cancelar Venda
+                        </button>`;
+                }
+            } catch (err) {
+                divConteudo.innerHTML = `<p class="text-center" style="color: var(--danger);">Erro: ${err.message}</p>`;
+                console.error("Erro em abrirDetalhesVenda:", err);
+            }
+        }
+
+        async function cancelarVenda(idVenda) {
+            if (!confirm("Deseja realmente cancelar esta venda? Os itens voltarão ao estoque.")) return;
+            
+            try {
+                const { error: errVenda } = await db.from('vendas').update({ status_pagamento: 'Cancelada' }).eq('id', idVenda);
+                if (errVenda) throw new Error("Erro ao atualizar venda: " + errVenda.message);
+
+                let { data: itens, error: errItens } = await db.from('itens_venda').select('*').eq('venda_id', idVenda);
+                if (!itens || itens.length === 0) {
+                    const alt = await db.from('itens_venda').select('*').eq('id_venda', idVenda);
+                    itens = alt.data;
+                }
+                
+                if (itens && itens.length > 0) {
+                    for (let item of itens) {
+                        const prodId = item.produto_id || item.id_produto;
+                        const qtdVendida = Number(item.quantidade || 1);
+
+                        const { data: prod } = await db.from('produtos').select('quantidade_atual').eq('id', prodId).single();
+                        
+                        if (prod) {
+                            const novaQtd = Number(prod.quantidade_atual) + qtdVendida;
+                            const { error: errUpdateProd } = await db.from('produtos').update({ quantidade_atual: novaQtd }).eq('id', prodId);
+                            if (errUpdateProd) throw new Error("Erro ao atualizar o estoque do produto ID " + prodId);
+                        }
+                    }
+                }
+                
+                alert("Venda cancelada e produtos retornados ao estoque com sucesso!");
+                fecharModalDetalhes(); 
+                carregarFinanceiro(); 
+                carregarEstoque();
+                carregarDashboard();
+                
+            } catch (err) { 
+                alert("Erro ao cancelar: " + err.message); 
+                console.error("Erro completo no cancelamento:", err);
+            }
+        }
+
+        // ==============================
+        // 7. INICIALIZAÇÃO
+        // ==============================
+        document.addEventListener('DOMContentLoaded', () => {
+            carregarDashboard();
+        });
 
         // 8. REGISTRO PWA
         if ('serviceWorker' in navigator && location.protocol !== 'file:') {
@@ -882,9 +1245,6 @@
                         const installingWorker = reg.installing;
                         installingWorker.onstatechange = () => {
                             if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                // Nova versão detectada!
-                                // Forçamos o recarregamento para o usuário ver a mudança
-                                console.log('Nova versão disponível. Atualizando...');
                                 window.location.reload();
                             }
                         };
