@@ -859,9 +859,34 @@
 
             if (qtd + 1 > estoqueMax) return alert("Estoque insuficiente!");
 
-            if (itemExistente) itemExistente.quantidade++;
-            else carrinho.push({ produto_id: id, nome, preco, quantidade: 1, estoque_max: estoqueMax });
+            if (itemExistente) {
+                itemExistente.quantidade++;
+            } else {
+                carrinho.push({ 
+                    produto_id: id, 
+                    nome, 
+                    preco, 
+                    quantidade: 1, 
+                    estoque_max: estoqueMax,
+                    desconto: 0 // Novo campo de desconto em R$
+                });
+            }
 
+            atualizarInterfaceCarrinho();
+        }
+
+        function atualizarDescontoItem(index, valorDesconto) {
+            const desconto = parseFloat(valorDesconto) || 0;
+            const item = carrinho[index];
+            
+            // O desconto não pode ser maior do que o preço unitário do produto
+            if (desconto > item.preco) {
+                alert("O desconto não pode ser maior que o preço do produto!");
+                document.getElementById(`desconto-input-${index}`).value = item.desconto;
+                return;
+            }
+
+            item.desconto = desconto;
             atualizarInterfaceCarrinho();
         }
 
@@ -875,18 +900,39 @@
                 return;
             }
 
-            div.innerHTML = carrinho.map((item, i) => `
-                <div class="cart-item">
-                    <div><h4>${item.nome}</h4><p>R$ ${item.preco.toFixed(2)}</p></div>
-                    <div class="cart-controls">
-                        <button class="btn-qtd" onclick="removerDoCarrinho(${i})">-</button>
-                        <span>${item.quantidade}</span>
-                        <button class="btn-qtd" onclick="adicionarMaisUm(${i})">+</button>
+            div.innerHTML = carrinho.map((item, i) => {
+                const subtotalItem = (item.preco - item.desconto) * item.quantidade;
+                return `
+                    <div class="cart-item" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h4>${item.nome}</h4>
+                                <p>Preço: R$ ${item.preco.toFixed(2)}</p>
+                            </div>
+                            <div class="cart-controls">
+                                <button class="btn-qtd" onclick="removerDoCarrinho(${i})">-</button>
+                                <span>${item.quantidade}</span>
+                                <button class="btn-qtd" onclick="adicionarMaisUm(${i})">+</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Linha do Desconto por Produto -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: #121212; padding: 6px 10px; border-radius: 6px;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">Desconto un. (R$):</span>
+                            <input type="number" id="desconto-input-${i}" value="${item.desconto}" min="0" max="${item.preco}" step="0.01" 
+                                   onchange="atualizarDescontoItem(${i}, this.value)" 
+                                   style="width: 80px; padding: 4px; background: var(--bg-card); color: white; border: 1px solid #333; border-radius: 4px; text-align: right; font-size: 0.9rem;">
+                        </div>
+                        
+                        <div style="text-align: right; font-size: 0.85rem; color: var(--primary-yellow);">
+                            Subtotal: ${formatarMoeda(subtotalItem)}
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
-            const total = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
+            // Calcula o total geral considerando o preço menos o desconto multiplicado pela quantidade
+            const total = carrinho.reduce((acc, item) => acc + ((item.preco - item.desconto) * item.quantidade), 0);
             totalElement.innerText = formatarMoeda(total);
         }
 
@@ -901,7 +947,8 @@
         async function finalizarVenda() {
             if (carrinho.length === 0) return alert("Adicione itens ao carrinho!");
 
-            const total = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
+            // Calcula o total considerando o preço unitário menos o desconto aplicado
+            const total = carrinho.reduce((acc, item) => acc + ((item.preco - item.desconto) * item.quantidade), 0);
             const clienteId = document.getElementById('venda-cliente').value || null;
             const formaPagamento = document.getElementById('venda-forma-pagamento').value;
             
@@ -918,6 +965,7 @@
             const statusPagamento = formaPagamento === 'A Prazo' ? 'Pendente' : 'Pago';
 
             try {
+                // 1. Salva a venda principal
                 const { data: venda, error: errV } = await db.from('vendas').insert([{ 
                     valor_total: total,
                     cliente_id: clienteId,
@@ -930,16 +978,20 @@
                 
                 const vendaIdGerada = venda[0].id;
 
+                // 2. Salva cada item na tabela itens_venda (salvando o preço líquido já com o desconto subtraído)
                 for (let item of carrinho) {
+                    const precoLiquido = item.preco - item.desconto;
+
                     const { error: errItem } = await db.from('itens_venda').insert([{ 
                         venda_id: vendaIdGerada, 
                         produto_id: item.produto_id, 
                         quantidade: item.quantidade,
-                        preco_unitario: item.preco 
+                        preco_unitario: precoLiquido 
                     }]);
                     
                     if (errItem) throw new Error("Erro ao salvar o item " + item.nome + ": " + errItem.message);
 
+                    // Abate do estoque
                     const { error: errEstoque } = await db.from('produtos').update({ 
                         quantidade_atual: item.estoque_max - item.quantidade 
                     }).eq('id', item.produto_id);
@@ -947,13 +999,14 @@
                     if (errEstoque) throw new Error("Erro ao atualizar estoque do produto " + item.nome);
                 }
 
+                // 3. REGISTRA NA TABELA DE TRANSAÇÕES FINANCEIRAS
                 if (statusPagamento === 'Pago') {
                     const { error: errTransacao } = await db.from('transacoes_financeiras').insert([{
-                        tipo: 'Entrada',
+                        tipo: 'RECEITA', // <-- ALTERADO PARA O FORMATO ACEITO PELA RESTRIÇÃO DO BANCO
                         categoria: 'Vendas',
                         valor: total,
                         data_transacao: new Date().toISOString(),
-                        descricao: `Venda à vista (${formaPagamento})`
+                        descricao: `Venda à vista (${formaPagamento}) - Com desconto`
                     }]);
 
                     if (errTransacao) {
