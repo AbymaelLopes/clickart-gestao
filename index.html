@@ -431,6 +431,10 @@
                 </div>
             </div>
 
+            <button class="btn-finalizar" style="background: var(--danger); color: white; margin-bottom: 25px;" onclick="abrirModalSaida()">
+                <i class="fas fa-minus-circle"></i> Registrar Nova Saída
+            </button>
+
             <h3 style="margin-bottom: 15px; font-size: 1.1rem; color: var(--text-light);">Contas a Receber</h3>
             <div id="lista-contas-receber" class="transacoes-list" style="margin-bottom: 20px;">
                 <p class="text-center text-muted">Nenhuma conta pendente.</p>
@@ -491,6 +495,36 @@
                 </div>
                 
                 <button class="btn-finalizar" onclick="processarRecebimentoParcial()">Confirmar Recebimento</button>
+            </div>
+        </div>
+
+        <!-- MODAL DE REGISTRAR SAÍDA / CONTA A PAGAR -->
+        <div id="modal-saida" class="modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="font-size: 1.1rem; color: var(--danger);">Registrar Saída (Conta a Pagar)</h3>
+                    <span class="close" onclick="fecharModalSaida()"><i class="fas fa-times"></i></span>
+                </div>
+                
+                <form id="form-saida" onsubmit="salvarSaida(event)">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Descrição da Despesa *</label>
+                        <input type="text" id="saida-descricao" required placeholder="Ex: Aluguel, Compra de Material, Luz..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: var(--bg-dark); color: white; outline: none; font-size: 1rem;">
+                        
+                        <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-top: 10px; margin-bottom: 5px;">Categoria *</label>
+                        <select id="saida-categoria" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: var(--bg-dark); color: white; outline: none; font-size: 1rem;">
+                            <option value="Fornecedores">Fornecedores / Insumos</option>
+                            <option value="Operacional">Custos Operacionais</option>
+                            <option value="Impostos">Impostos e Taxas</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+
+                        <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-top: 10px; margin-bottom: 5px;">Valor (R$) *</label>
+                        <input type="number" id="saida-valor" required placeholder="0.00" step="0.01" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: var(--bg-dark); color: white; outline: none; font-size: 1rem;">
+                    </div>
+                    
+                    <button type="submit" class="btn-finalizar" style="background: var(--danger); color: white;">Salvar Saída</button>
+                </form>
             </div>
         </div>
     </main>
@@ -572,8 +606,9 @@
 
         async function carregarDashboard() {
             try {
-                const { data: vendas } = await db.from('vendas').select('valor_total, data_venda').eq('status_pagamento', 'Pago');
-                const { data: produtos } = await db.from('produtos').select('quantidade_atual, preco_venda, nome, estoque_minimo');
+                // MODIFICADO: Removemos o .eq('status_pagamento', 'Pago') para puxar todas as vendas (exceto canceladas)
+                const { data: vendas, error: errVendas } = await db.from('vendas').select('valor_total, data_venda, status_pagamento');
+                const { data: produtos, error: errProdutos } = await db.from('produtos').select('quantidade_atual, preco_venda, nome, estoque_minimo');
 
                 const vendasArray = vendas || [];
                 const produtosArray = produtos || [];
@@ -582,16 +617,22 @@
                 const dadosGrafico = new Array(12).fill(0);
                 
                 vendasArray.forEach(v => {
-                    const mes = new Date(v.data_venda).getMonth();
-                    dadosGrafico[mes] += (v.valor_total || 0);
+                    // Soma no gráfico apenas se a venda não estiver cancelada
+                    if (v.status_pagamento !== 'Cancelada') {
+                        const mes = new Date(v.data_venda).getMonth();
+                        dadosGrafico[mes] += (v.valor_total || 0);
+                    }
                 });
                 renderizarGraficoVendas(meses, dadosGrafico);
 
-                const totalVendas = vendasArray.reduce((acc, v) => acc + (v.valor_total || 0), 0);
+                // Filtra para somar no total de vendas tudo que não for cancelado (incluindo as a prazo/pendentes)
+                const vendasValidas = vendasArray.filter(v => v.status_pagamento !== 'Cancelada');
+                const totalVendas = vendasValidas.reduce((acc, v) => acc + (v.valor_total || 0), 0);
+                
                 const totalEstoque = produtosArray.reduce((acc, p) => acc + (p.quantidade_atual * p.preco_venda), 0);
                 
                 document.getElementById('metric-vendas').innerText = formatarMoeda(totalVendas);
-                document.getElementById('metric-caixa').innerText = formatarMoeda(totalVendas);
+                document.getElementById('metric-caixa').innerText = formatarMoeda(totalVendas); 
                 document.getElementById('metric-estoque').innerText = formatarMoeda(totalEstoque);
 
                 const listaEstoque = document.getElementById('low-stock-list');
@@ -1045,12 +1086,17 @@
 
         async function carregarFinanceiro() {
             try {
+                // Pega as vendas
                 const { data: vendas, error: errVendas } = await db.from('vendas').select(`
                     id, valor_total, data_venda, status_pagamento, forma_pagamento, data_vencimento, valor_pago,
                     clientes (nome)
                 `).order('data_venda', { ascending: false });
+
+                // Pega as transações financeiras (Entradas e Saídas)
+                const { data: transacoes, error: errTrans } = await db.from('transacoes_financeiras').select('*').order('data_transacao', { ascending: false });
                 
                 if (errVendas) throw errVendas;
+                if (errTrans) throw errTrans;
 
                 const listaTransacoes = document.getElementById('lista-transacoes');
                 const listaContas = document.getElementById('lista-contas-receber');
@@ -1058,7 +1104,9 @@
                 let contasPendentesHTML = '';
                 let transacoesGeraisHTML = '';
                 let totalEntradasPagos = 0;
+                let totalSaidas = 0;
 
+                // Processa Vendas pagas para somar entradas
                 (vendas || []).forEach(v => {
                     const nomeCliente = v.clientes ? v.clientes.nome : 'Cliente Avulso';
                     const pago = v.valor_pago || 0;
@@ -1100,14 +1148,31 @@
                     }
                 });
 
+                // Processa as Saídas da tabela transacoes_financeiras
+                (transacoes || []).forEach(t => {
+                    if (t.tipo === 'Saida' || t.tipo === 'Despesa') {
+                        totalSaidas += Number(t.valor || 0);
+                        transacoesGeraisHTML += `
+                            <div class="transacao-item" style="border-left-color: var(--danger);">
+                                <div class="info">
+                                    <h4>Despesa: ${t.descricao}</h4>
+                                    <p>${new Date(t.data_transacao).toLocaleDateString()} - [${t.categoria}]</p>
+                                </div>
+                                <div class="valor" style="color: var(--danger);">- ${formatarMoeda(t.valor)}</div>
+                            </div>`;
+                    }
+                });
+
                 listaContas.innerHTML = contasPendentesHTML || '<p class="text-center text-muted">Nenhuma conta pendente.</p>';
-                listaTransacoes.innerHTML = transacoesGeraisHTML || '<p class="text-center text-muted">Nenhuma transação paga.</p>';
+                listaTransacoes.innerHTML = transacoesGeraisHTML || '<p class="text-center text-muted">Nenhuma transação registrada.</p>';
+
+                const saldoLiquido = totalEntradasPagos - totalSaidas;
 
                 document.getElementById('fin-entradas').innerText = formatarMoeda(totalEntradasPagos);
-                document.getElementById('fin-saidas').innerText = formatarMoeda(0);
-                document.getElementById('fin-saldo').innerText = formatarMoeda(totalEntradasPagos);
+                document.getElementById('fin-saidas').innerText = formatarMoeda(totalSaidas);
+                document.getElementById('fin-saldo').innerText = formatarMoeda(saldoLiquido);
 
-                renderizarGraficoLucro([0,0,0,0, totalEntradasPagos*0.3, 0,0,0,0,0,0,0]); 
+                renderizarGraficoLucro([0,0,0,0, saldoLiquido*0.3, 0,0,0,0,0,0,0]); 
 
             } catch (err) { 
                 console.error("Erro no Financeiro:", err); 
@@ -1282,6 +1347,49 @@
                 console.error("Erro completo no cancelamento:", err);
             }
         }
+
+        // ==================================
+        // Registro de saida //
+        function abrirModalSaida() {
+            document.getElementById('modal-saida').style.display = 'flex';
+        }
+
+        function fecharModalSaida() {
+            document.getElementById('modal-saida').style.display = 'none';
+            document.getElementById('form-saida').reset();
+        }
+
+        async function salvarSaida(e) {
+            e.preventDefault();
+            
+            const descricao = document.getElementById('saida-descricao').value;
+            const categoria = document.getElementById('saida-categoria').value;
+            const valor = parseFloat(document.getElementById('saida-valor').value);
+
+            if (!descricao || isNaN(valor) || valor <= 0) {
+                return alert("Preencha a descrição e um valor válido!");
+            }
+
+            try {
+                const { error } = await db.from('transacoes_financeiras').insert([{
+                    tipo: 'Saida', // Salva como Saída para diferenciar das Vendas
+                    categoria: categoria,
+                    valor: valor,
+                    data_transacao: new Date().toISOString(),
+                    descricao: descricao
+                }]);
+
+                if (error) throw error;
+
+                alert("Saída registrada com sucesso!");
+                fecharModalSaida();
+                carregarFinanceiro(); // Atualiza os totais e o histórico financeiro
+            } catch (err) {
+                alert("Erro ao registrar saída: " + err.message);
+                console.error(err);
+            }
+        }
+        // ========================
 
         // ==============================
         // 7. INICIALIZAÇÃO
