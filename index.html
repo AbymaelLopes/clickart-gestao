@@ -411,8 +411,8 @@
         <section id="financeiro" class="view">
             <h2>Financeiro</h2>
  
-            <div class="chart-container" style="height: 200px; background: var(--bg-card); padding: 15px; border-radius: 12px; margin-bottom: 20px;">
-                <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Lucro Líquido Mensal</h3>
+            <div class="chart-container" style="height: 220px; background: var(--bg-card); padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+                <h3 style="font-size: 0.9rem; margin-bottom: 10px;">Entradas x Saídas</h3>
                 <canvas id="lucroChart"></canvas>
             </div>
 
@@ -426,8 +426,8 @@
                     <h3 id="fin-saidas">R$ 0,00</h3>
                 </div>
                 <div class="resumo-item saldo">
-                    <span>Saldo Líquido</span>
-                    <h3 id="fin-saldo">R$ 0,00</h3>
+                    <span>A receber</span>
+                    <h3 id="fin-areceber">R$ 0,00</h3>
                 </div>
             </div>
 
@@ -894,6 +894,62 @@
             `).join('');
         }
 
+        // ==============================
+        // BUSCA DE ESTOQUE E VENDAS
+        // ==============================
+        let timeoutBuscaEstoque = null;
+        function debounceBuscarEstoque() {
+            clearTimeout(timeoutBuscaEstoque);
+            timeoutBuscaEstoque = setTimeout(() => {
+                carregarEstoqueFiltrado();
+            }, 300);
+        }
+
+        async function carregarEstoqueFiltrado() {
+            const termo = document.getElementById('busca-estoque').value.trim();
+            try {
+                let query = db.from('produtos').select('*').order('nome');
+                
+                if (termo.length > 0) {
+                    query = query.ilike('nome', `%${termo}%`);
+                }
+
+                const { data, error } = await query;
+                if (error) throw error;
+                
+                const div = document.getElementById('lista-estoque');
+                
+                if (!data || data.length === 0) {
+                    div.innerHTML = '<p class="text-center text-muted">Nenhum produto encontrado.</p>';
+                    return;
+                }
+
+                div.innerHTML = data.map(p => `
+                    <div class="estoque-item">
+                        <div>
+                            <h4>${p.nome}</h4>
+                            <p>Venda: ${formatarMoeda(p.preco_venda)} | Custo: ${formatarMoeda(p.preco_compra)}</p>
+                        </div>
+                        <div class="valores">
+                            <span class="qtd">Qtd: ${p.quantidade_atual}</span>
+                            <div style="display: flex; gap: 10px; margin-top: 5px; justify-content: flex-end;">
+                                <button onclick="editarProduto('${p.id}', '${p.nome.replace(/'/g, "\\'")}', ${p.preco_compra}, ${p.preco_venda}, ${p.quantidade_atual}, '${p.categoria}')" 
+                                        style="background:none; border:none; color:var(--primary-yellow); cursor:pointer;">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deletarProduto('${p.id}', '${p.nome.replace(/'/g, "\\'")}')" 
+                                        style="background:none; border:none; color:var(--danger); cursor:pointer;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) { 
+                console.error("Erro ao buscar no estoque:", err); 
+            }
+        }
+
         function adicionarAoCarrinho(id, nome, preco, estoqueMax) {
             const itemExistente = carrinho.find(item => item.produto_id === id);
             const qtd = itemExistente ? itemExistente.quantidade : 0;
@@ -1070,29 +1126,62 @@
         // ==============================
         // 6. FINANCEIRO E CONTAS A RECEBER
         // ==============================
-        let graficoLucro = null;
-        function renderizarGraficoLucro(dados) {
+        let graficoEntradasSaidas = null;
+
+        function renderizarGraficoEntradasSaidas(mesesLabels, dadosEntradas, dadosSaidas) {
             const ctx = document.getElementById('lucroChart').getContext('2d');
-            if (graficoLucro) graficoLucro.destroy();
-            graficoLucro = new Chart(ctx, {
-                type: 'bar',
+            if (graficoEntradasSaidas) graficoEntradasSaidas.destroy();
+            
+            graficoEntradasSaidas = new Chart(ctx, {
+                type: 'line',
                 data: {
-                    labels: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
-                    datasets: [{ label: 'Lucro (R$)', data: dados, backgroundColor: '#D4AF37' }]
+                    labels: mesesLabels,
+                    datasets: [
+                        {
+                            label: 'Entradas (R$)',
+                            data: dadosEntradas,
+                            borderColor: '#1C51B9', // Azul primário do tema
+                            backgroundColor: 'rgba(28, 81, 185, 0.1)',
+                            fill: true, 
+                            tension: 0
+                        },
+                        {
+                            label: 'Saídas (R$)',
+                            data: dadosSaidas,
+                            borderColor: '#D32F2F', // Vermelho padrão de alerta/saída
+                            backgroundColor: 'rgba(211, 47, 47, 0.1)',
+                            fill: true, 
+                            tension: 0
+                        }
+                    ]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { display: true, position: 'top', labels: { color: '#F5F5F5', boxWidth: 12 } } 
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#A0A0A0', font: { size: 11 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#A0A0A0', font: { size: 11 } }
+                        }
+                    }
+                }
             });
         }
 
         async function carregarFinanceiro() {
             try {
-                // Pega as vendas
                 const { data: vendas, error: errVendas } = await db.from('vendas').select(`
                     id, valor_total, data_venda, status_pagamento, forma_pagamento, data_vencimento, valor_pago,
                     clientes (nome)
                 `).order('data_venda', { ascending: false });
 
-                // Pega as transações financeiras (Entradas e Saídas)
                 const { data: transacoes, error: errTrans } = await db.from('transacoes_financeiras').select('*').order('data_transacao', { ascending: false });
                 
                 if (errVendas) throw errVendas;
@@ -1105,8 +1194,14 @@
                 let transacoesGeraisHTML = '';
                 let totalEntradasPagos = 0;
                 let totalSaidas = 0;
+                let totalAReceber = 0;
 
-                // Processa Vendas pagas para somar entradas
+                // Arrays para os 12 meses do gráfico de linhas
+                const mesesLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+                const entradasMensais = new Array(12).fill(0);
+                const saidasMensais = new Array(12).fill(0);
+
+                // Processa Vendas
                 (vendas || []).forEach(v => {
                     const nomeCliente = v.clientes ? v.clientes.nome : 'Cliente Avulso';
                     const pago = v.valor_pago || 0;
@@ -1114,6 +1209,7 @@
                     if (v.status_pagamento === 'Pendente') {
                         const dataVenc = v.data_vencimento ? new Date(v.data_vencimento).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : 'Sem data';
                         const valorRestante = v.valor_total - pago;
+                        totalAReceber += valorRestante;
 
                         contasPendentesHTML += `
                             <div class="transacao-item pendente" onclick="abrirDetalhesVenda('${v.id}')" style="cursor: pointer;" title="Clique para ver os itens">
@@ -1137,6 +1233,11 @@
                             </div>`;
                     } else {
                         totalEntradasPagos += v.valor_total;
+                        
+                        // Mapeia entrada para o mês correspondente
+                        const mesIndex = new Date(v.data_venda).getMonth();
+                        if (!isNaN(mesIndex)) entradasMensais[mesIndex] += v.valor_total;
+
                         transacoesGeraisHTML += `
                             <div class="transacao-item entrada" onclick="abrirDetalhesVenda('${v.id}')" style="cursor: pointer;" title="Clique para ver os itens">
                                 <div class="info">
@@ -1148,10 +1249,16 @@
                     }
                 });
 
-                // Processa as Saídas da tabela transacoes_financeiras
+                // Processa as Saídas
                 (transacoes || []).forEach(t => {
                     if (t.tipo === 'Saida' || t.tipo === 'Despesa') {
-                        totalSaidas += Number(t.valor || 0);
+                        const valorDespesa = Number(t.valor || 0);
+                        totalSaidas += valorDespesa;
+
+                        // Mapeia saída para o mês correspondente
+                        const mesIndex = new Date(t.data_transacao).getMonth();
+                        if (!isNaN(mesIndex)) saidasMensais[mesIndex] += valorDespesa;
+
                         transacoesGeraisHTML += `
                             <div class="transacao-item" style="border-left-color: var(--danger);">
                                 <div class="info">
@@ -1166,13 +1273,12 @@
                 listaContas.innerHTML = contasPendentesHTML || '<p class="text-center text-muted">Nenhuma conta pendente.</p>';
                 listaTransacoes.innerHTML = transacoesGeraisHTML || '<p class="text-center text-muted">Nenhuma transação registrada.</p>';
 
-                const saldoLiquido = totalEntradasPagos - totalSaidas;
-
                 document.getElementById('fin-entradas').innerText = formatarMoeda(totalEntradasPagos);
                 document.getElementById('fin-saidas').innerText = formatarMoeda(totalSaidas);
-                document.getElementById('fin-saldo').innerText = formatarMoeda(saldoLiquido);
+                document.getElementById('fin-areceber').innerText = formatarMoeda(totalAReceber);
 
-                renderizarGraficoLucro([0,0,0,0, saldoLiquido*0.3, 0,0,0,0,0,0,0]); 
+                // Renderiza o gráfico de linhas duplas (Entradas vs Saídas)
+                renderizarGraficoEntradasSaidas(mesesLabels, entradasMensais, saidasMensais);
 
             } catch (err) { 
                 console.error("Erro no Financeiro:", err); 
